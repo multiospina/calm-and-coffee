@@ -1,12 +1,10 @@
 const pool = require('../../config/db');
 
 // ── GET /api/cliente/trazabilidad/:qr_codigo ─────────────────
-// Vista pública — el consumidor escanea el QR del pocillo
 const getTrazabilidad = async (req, res) => {
   const { qr_codigo } = req.params;
 
   try {
-    // 1. Buscar la cosecha por QR
     const cosechaRes = await pool.query(
       `SELECT c.id, c.variedad, c.proceso, c.lote_nombre,
               c.fecha_inicio, c.fecha_cierre, c.kg_producidos,
@@ -39,7 +37,6 @@ const getTrazabilidad = async (req, res) => {
 
     const cosecha = cosechaRes.rows[0];
 
-    // 2. Etapas de la cosecha (la historia completa)
     const etapasRes = await pool.query(
       `SELECT tipo_etapa, fecha, descripcion,
               fotos_urls, datos_extra
@@ -49,7 +46,6 @@ const getTrazabilidad = async (req, res) => {
       [cosecha.id]
     );
 
-    // 3. Catación profesional SCA (si existe)
     const catacionRes = await pool.query(
       `SELECT puntaje_total, notas_narrativas,
               notas_sabor, recomendacion_prep,
@@ -63,7 +59,6 @@ const getTrazabilidad = async (req, res) => {
       [cosecha.id]
     );
 
-    // 4. Valoraciones del público (promedio)
     const valoracionesRes = await pool.query(
       `SELECT ROUND(AVG(cafe_aroma)::numeric, 1)       AS avg_aroma,
               ROUND(AVG(cafe_sabor)::numeric, 1)       AS avg_sabor,
@@ -77,7 +72,6 @@ const getTrazabilidad = async (req, res) => {
       [cosecha.id]
     );
 
-    // 5. Calcular años desde siembra para narrativa
     let narrativaSiembra = null;
     if (cosecha.fecha_siembra) {
       const siembra = new Date(cosecha.fecha_siembra);
@@ -89,32 +83,32 @@ const getTrazabilidad = async (req, res) => {
 
     res.json({
       cosecha: {
-        id:           cosecha.id,
-        variedad:     cosecha.variedad,
-        proceso:      cosecha.proceso,
-        lote_nombre:  cosecha.lote_nombre,
-        fecha_inicio: cosecha.fecha_inicio,
-        fecha_cierre: cosecha.fecha_cierre,
-        kg_producidos:cosecha.kg_producidos,
-        qr_codigo:    cosecha.qr_codigo,
+        id:            cosecha.id,
+        variedad:      cosecha.variedad,
+        proceso:       cosecha.proceso,
+        lote_nombre:   cosecha.lote_nombre,
+        fecha_inicio:  cosecha.fecha_inicio,
+        fecha_cierre:  cosecha.fecha_cierre,
+        kg_producidos: cosecha.kg_producidos,
+        qr_codigo:     cosecha.qr_codigo,
       },
       finca: {
-        nombre:      cosecha.nombre_finca,
-        municipio:   cosecha.municipio_finca,
-        departamento:cosecha.departamento,
-        altitud_msnm:cosecha.altitud_msnm,
-        historia:    cosecha.historia_finca,
-        video_url:   cosecha.video_url,
+        nombre:       cosecha.nombre_finca,
+        municipio:    cosecha.municipio_finca,
+        departamento: cosecha.departamento,
+        altitud_msnm: cosecha.altitud_msnm,
+        historia:     cosecha.historia_finca,
+        video_url:    cosecha.video_url,
       },
       caficultor: {
         nombre:    cosecha.nombre_caficultor,
         municipio: cosecha.municipio_caficultor,
       },
       lote: cosecha.fecha_siembra ? {
-        nombre:          cosecha.nombre_lote,
-        fecha_siembra:   cosecha.fecha_siembra,
-        notas_siembra:   cosecha.notas_siembra,
-        narrativa:       narrativaSiembra,
+        nombre:        cosecha.nombre_lote,
+        fecha_siembra: cosecha.fecha_siembra,
+        notas_siembra: cosecha.notas_siembra,
+        narrativa:     narrativaSiembra,
       } : null,
       etapas:      etapasRes.rows,
       catacion:    catacionRes.rows[0] || null,
@@ -134,6 +128,7 @@ const getCafeterias = async (req, res) => {
       `SELECT ca.id, ca.nombre, ca.direccion,
               ca.municipio, ca.descripcion,
               ca.foto_url, ca.horario,
+              ca.activa,
               COUNT(DISTINCT cc.cosecha_id) AS cosechas_activas,
               ROUND(AVG(v.cafe_experiencia)::numeric, 1) AS rating
        FROM cafeterias ca
