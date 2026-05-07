@@ -11,6 +11,8 @@ import ColaPedidos    from './components/ColaPedidos';
 import EntregadosList from './components/EntregadosList';
 import MenuHoy        from './components/MenuHoy';
 import PerfilCliente  from './components/PerfilCliente';
+import StockCafeteria from './components/StockCafeteria';
+import Rendimiento    from './components/Rendimiento';
 
 const TIPS_CAFE = [
   'El café V60 requiere agua a 92°C para extraer los mejores aromas florales.',
@@ -154,12 +156,14 @@ export default function BaristaDashboard() {
             </div>
           </div>
 
-          {/* Tabs */}
-          <div className="flex gap-0">
+          {/* Tabs — scroll horizontal en móvil */}
+          <div className="flex gap-0 overflow-x-auto" style={{ scrollbarWidth:'none' }}>
             {[
-              { id: 'activos',    label: 'Activos',    count: pedidosActivos.length,    urgentes: pedidosUrgentes.length },
-              { id: 'entregados', label: 'Entregados', count: pedidosEntregados.length, urgentes: 0 },
-              { id: 'menu',       label: 'Menú hoy',   count: menu.length,              urgentes: 0 },
+              { id:'activos',     label:'Activos',     count: pedidosActivos.length,    urgentes: pedidosUrgentes.length },
+              { id:'entregados',  label:'Entregados',  count: pedidosEntregados.length, urgentes: 0 },
+              { id:'menu',        label:'Menú hoy',    count: menu.length,              urgentes: 0 },
+              { id:'stock',       label:'Stock',       count: 0,                        urgentes: 0 },
+              { id:'rendimiento', label:'Rendimiento', count: 0,                        urgentes: 0 },
             ].map(t => (
               <button key={t.id}
                 onClick={() => setVistaTab(t.id)}
@@ -189,7 +193,7 @@ export default function BaristaDashboard() {
       <div className="max-w-2xl mx-auto px-4 py-4 space-y-4">
 
         <TurnoCard turno={turno} />
-        <MetricasGrid metricas={metricas} />
+        <MetricasGrid metricas={metricas} compacto={true} />
 
         {/* Alerta urgentes */}
         {pedidosUrgentes.length > 0 && vistaTab === 'activos' && (
@@ -235,11 +239,16 @@ export default function BaristaDashboard() {
             onAvanzar={avanzarEstado}
             onVerPerfil={verPerfilCliente}
             actualizando={actualizando}
+            onReportado={cargarDatos}
           />
         ) : vistaTab === 'entregados' ? (
           <EntregadosList pedidos={pedidosEntregados} />
-        ) : (
+        ) : vistaTab === 'menu' ? (
           <MenuHoy menu={menu} />
+        ) : vistaTab === 'stock' ? (
+          <StockCafeteria />
+        ) : (
+          <Rendimiento />
         )}
       </div>
 

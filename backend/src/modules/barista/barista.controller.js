@@ -281,6 +281,107 @@ const reportarProblema = async (req, res) => {
   }
 };
 
+// ── GET /api/barista/stock ───────────────────────────────────
+const getStockCafeteria = async (req, res) => {
+  try {
+    const turnoRes = await pool.query(
+      `SELECT t.cafeteria_id
+       FROM turnos t
+       JOIN turno_baristas tb ON tb.turno_id = t.id
+       WHERE tb.barista_id = $1
+         AND t.fecha = CURRENT_DATE
+         AND t.estado = 'activo'
+       LIMIT 1`,
+      [req.usuario.id]
+    );
+
+    if (turnoRes.rows.length === 0) {
+      return res.json({ stock: [] });
+    }
+
+    const result = await pool.query(
+      `SELECT mi.id, mi.nombre, mi.stock, mi.activo,
+              mi.precio, c.variedad, c.proceso,
+              f.nombre AS nombre_finca
+       FROM menu_items mi
+       LEFT JOIN cosechas c ON c.id = mi.cosecha_id
+       LEFT JOIN fincas f   ON f.id = c.finca_id
+       WHERE mi.cafeteria_id = $1 AND mi.activo = true
+       ORDER BY mi.stock ASC`,
+      [turnoRes.rows[0].cafeteria_id]
+    );
+
+    res.json({ stock: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al obtener stock' });
+  }
+};
+
+// ── PUT /api/barista/stock/:id/agotar ───────────────────────
+const agotarCafe = async (req, res) => {
+  try {
+    await pool.query(
+      `UPDATE menu_items SET stock = 0 WHERE id = $1`,
+      [req.params.id]
+    );
+    res.json({ message: 'Café marcado como agotado' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al agotar café' });
+  }
+};
+
+// ── GET /api/barista/rendimiento ─────────────────────────────
+const getRendimiento = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+         COUNT(p.id)                                           AS total_pedidos,
+         COUNT(CASE WHEN p.estado = 'entregado' THEN 1 END)   AS entregados,
+         ROUND(AVG(v.cafe_experiencia)::numeric, 1)            AS satisfaccion_promedio,
+         ROUND(AVG(
+           EXTRACT(EPOCH FROM (p.entregado_en - p.creado_en))/60
+         )::numeric, 1)                                        AS tiempo_promedio_min,
+         t.fecha,
+         t.nombre AS nombre_turno
+       FROM pedidos p
+       JOIN turno_baristas tb ON tb.turno_id = p.turno_id
+       JOIN turnos t          ON t.id = p.turno_id
+       LEFT JOIN valoraciones v ON v.pedido_id = p.id
+       WHERE tb.barista_id = $1
+         AND t.fecha >= CURRENT_DATE - INTERVAL '7 days'
+       GROUP BY t.id, t.fecha, t.nombre
+       ORDER BY t.fecha DESC`,
+      [req.usuario.id]
+    );
+
+    const topCafes = await pool.query(
+      `SELECT mi.nombre, COUNT(p.id) AS total,
+              ROUND(AVG(v.cafe_experiencia)::numeric,1) AS rating
+       FROM pedidos p
+       JOIN menu_items mi     ON mi.id = p.menu_item_id
+       JOIN turno_baristas tb ON tb.turno_id = p.turno_id
+       LEFT JOIN valoraciones v ON v.pedido_id = p.id
+       WHERE tb.barista_id = $1
+         AND p.estado = 'entregado'
+         AND p.creado_en >= CURRENT_DATE - INTERVAL '7 days'
+       GROUP BY mi.id, mi.nombre
+       ORDER BY total DESC
+       LIMIT 5`,
+      [req.usuario.id]
+    );
+
+    res.json({
+      turnos:    result.rows,
+      top_cafes: topCafes.rows,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al obtener rendimiento' });
+  }
+};
+
 module.exports = {
   getMiTurno,
   getColaPedidos,
@@ -288,4 +389,7 @@ module.exports = {
   getMisMetricas,
   getPerfilClienteBarista,
   reportarProblema,
+  getStockCafeteria,
+  agotarCafe,
+  getRendimiento,
 };

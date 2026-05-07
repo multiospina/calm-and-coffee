@@ -6,7 +6,10 @@ const {
   avanzarEstadoPedido,
   getMisMetricas,
   getPerfilClienteBarista,
-   reportarProblema,
+  reportarProblema,
+  getStockCafeteria,
+  agotarCafe,
+  getRendimiento,
 } = require('./barista.controller');
 
 router.use(verificarToken);
@@ -18,4 +21,8 @@ router.put('/pedidos/:id/estado',  avanzarEstadoPedido);
 router.get('/metricas',            getMisMetricas);
 router.get('/clientes/:id/perfil', getPerfilClienteBarista);
 router.post('/pedidos/:id/reportar', reportarProblema);
+router.get('/stock',               getStockCafeteria);
+router.put('/stock/:id/agotar',    agotarCafe);
+router.get('/rendimiento',         getRendimiento);
+
 module.exports = router;
