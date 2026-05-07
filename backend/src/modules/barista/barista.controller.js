@@ -34,7 +34,6 @@ const getMiTurno = async (req, res) => {
 // ── GET /api/barista/pedidos ─────────────────────────────────
 const getColaPedidos = async (req, res) => {
   try {
-    // Buscar el turno activo del barista hoy
     const turnoRes = await pool.query(
       `SELECT t.id, t.cafeteria_id
        FROM turnos t
@@ -54,18 +53,19 @@ const getColaPedidos = async (req, res) => {
 
     const result = await pool.query(
       `SELECT p.id, p.mesa, p.estado,
+              p.cliente_id,
               p.metodo_preparacion, p.notas_cliente,
               p.creado_en, p.qr_pocillo,
-              mi.nombre        AS nombre_cafe,
+              mi.nombre         AS nombre_cafe,
               mi.precio,
               mi.foto_url,
               c.variedad, c.proceso,
-              u.nombre         AS nombre_cliente,
+              u.nombre          AS nombre_cliente,
               EXTRACT(EPOCH FROM (now() - p.creado_en))/60 AS minutos_esperando
        FROM pedidos p
-       JOIN menu_items mi ON mi.id = p.menu_item_id
+       JOIN menu_items mi   ON mi.id = p.menu_item_id
        LEFT JOIN cosechas c ON c.id = mi.cosecha_id
-       JOIN usuarios u     ON u.id = p.cliente_id
+       JOIN usuarios u      ON u.id = p.cliente_id
        WHERE p.cafeteria_id = $1
          AND p.turno_id = $2
          AND p.estado NOT IN ('entregado','cancelado')
@@ -74,10 +74,10 @@ const getColaPedidos = async (req, res) => {
     );
 
     res.json({
-      turno_id:    turno.id,
-      cafeteria_id:turno.cafeteria_id,
-      pedidos:     result.rows,
-      total:       result.rows.length
+      turno_id:     turno.id,
+      cafeteria_id: turno.cafeteria_id,
+      pedidos:      result.rows,
+      total:        result.rows.length
     });
   } catch (err) {
     console.error(err);
@@ -86,7 +86,6 @@ const getColaPedidos = async (req, res) => {
 };
 
 // ── PUT /api/barista/pedidos/:id/estado ──────────────────────
-// Este es el endpoint que dispara Socket.io en tiempo real
 const avanzarEstadoPedido = async (req, res) => {
   const { estado } = req.body;
 
@@ -103,13 +102,12 @@ const avanzarEstadoPedido = async (req, res) => {
   }
 
   try {
-    // Verificar que el pedido pertenece al turno activo del barista
     const existe = await pool.query(
       `SELECT p.id, p.cliente_id, p.cafeteria_id,
               p.estado AS estado_actual,
               mi.nombre AS nombre_cafe
        FROM pedidos p
-       JOIN menu_items mi ON mi.id = p.menu_item_id
+       JOIN menu_items mi     ON mi.id = p.menu_item_id
        JOIN turno_baristas tb ON tb.turno_id = p.turno_id
        WHERE p.id = $1 AND tb.barista_id = $2`,
       [req.params.id, req.usuario.id]
@@ -121,45 +119,37 @@ const avanzarEstadoPedido = async (req, res) => {
 
     const pedido = existe.rows[0];
 
-    // Actualizar estado
-const result = await pool.query(
-  `UPDATE pedidos SET
-    estado = $1,
-    barista_id = $2,
-    entregado_en = CASE WHEN $1::varchar = 'entregado' THEN now() ELSE entregado_en END
-   WHERE id = $3
-   RETURNING *`,
-  [estado, req.usuario.id, req.params.id]
-);
+    const result = await pool.query(
+      `UPDATE pedidos SET
+        estado     = $1,
+        barista_id = $2,
+        entregado_en = CASE WHEN $1::varchar = 'entregado' THEN now() ELSE entregado_en END
+       WHERE id = $3
+       RETURNING *`,
+      [estado, req.usuario.id, req.params.id]
+    );
 
-    const pedidoActualizado = result.rows[0];
-
-    // ── Emitir evento Socket.io ──────────────────────────────
-    // El objeto io está disponible en app.js — lo pasamos via req.app
     const io = req.app.get('io');
     if (io) {
-      // Notificar al cliente específico
       io.emit(`pedido:${req.params.id}`, {
-        pedido_id:  req.params.id,
-        estado:     estado,
-        nombre_cafe:pedido.nombre_cafe,
-        barista:    req.usuario.nombre,
-        timestamp:  new Date().toISOString()
+        pedido_id:   req.params.id,
+        estado,
+        nombre_cafe: pedido.nombre_cafe,
+        barista:     req.usuario.nombre,
+        timestamp:   new Date().toISOString()
       });
 
-      // Notificar al dashboard del barista
       io.emit(`cafeteria:${pedido.cafeteria_id}:pedidos`, {
         accion:    'estado_actualizado',
         pedido_id: req.params.id,
-        estado:    estado
+        estado,
       });
     }
 
     res.json({
-      message:         `Pedido actualizado a: ${estado}`,
-      pedido:          pedidoActualizado
+      message: `Pedido actualizado a: ${estado}`,
+      pedido:  result.rows[0]
     });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error al actualizar pedido' });
@@ -182,8 +172,8 @@ const getMisMetricas = async (req, res) => {
          )::numeric, 1)                                      AS tiempo_promedio_min
        FROM pedidos p
        LEFT JOIN valoraciones v ON v.pedido_id = p.id
-       JOIN turno_baristas tb ON tb.turno_id = p.turno_id
-       JOIN turnos t          ON t.id = p.turno_id
+       JOIN turno_baristas tb   ON tb.turno_id = p.turno_id
+       JOIN turnos t            ON t.id = p.turno_id
        WHERE tb.barista_id = $1
          AND t.fecha = $2`,
       [req.usuario.id, hoy]
@@ -196,9 +186,106 @@ const getMisMetricas = async (req, res) => {
   }
 };
 
+// ── GET /api/barista/clientes/:id/perfil ─────────────────────
+const getPerfilClienteBarista = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [pasaporteRes, preferenciasRes] = await Promise.all([
+      pool.query(
+        `SELECT pc.puntos, pc.nivel, pc.cafes_catados,
+                pc.cafeterias_visitadas, pc.variedades_catadas,
+                pc.procesos_catados, u.nombre AS nombre_cliente
+         FROM pasaporte_cafetero pc
+         JOIN usuarios u ON u.id = pc.cliente_id
+         WHERE pc.cliente_id = $1`,
+        [id]
+      ),
+      pool.query(
+        `SELECT intensidad, sabores_favoritos, momentos_favoritos
+         FROM preferencias_usuario
+         WHERE cliente_id = $1
+         ORDER BY creado_en DESC LIMIT 1`,
+        [id]
+      ),
+    ]);
+
+    res.json({
+      pasaporte:    pasaporteRes.rows[0]    || null,
+      preferencias: preferenciasRes.rows[0] || null,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al obtener perfil' });
+  }
+};
+
+// ── POST /api/barista/pedidos/:id/reportar ───────────────────
+const reportarProblema = async (req, res) => {
+  const { motivo, detalle } = req.body;
+
+  const motivos = ['cafe_agotado', 'cliente_no_encontrado', 'error_pedido', 'otro'];
+
+  if (!motivo || !motivos.includes(motivo)) {
+    return res.status(400).json({ error: 'Motivo inválido' });
+  }
+
+  try {
+    const existe = await pool.query(
+      `SELECT p.id, p.cafeteria_id, p.menu_item_id, mi.nombre AS nombre_cafe
+       FROM pedidos p
+       JOIN menu_items mi     ON mi.id = p.menu_item_id
+       JOIN turno_baristas tb ON tb.turno_id = p.turno_id
+       WHERE p.id = $1 AND tb.barista_id = $2`,
+      [req.params.id, req.usuario.id]
+    );
+
+    if (existe.rows.length === 0) {
+      return res.status(404).json({ error: 'Pedido no encontrado' });
+    }
+
+    const pedido = existe.rows[0];
+
+    // Cancelar el pedido
+    await pool.query(
+      `UPDATE pedidos SET estado = 'cancelado' WHERE id = $1`,
+      [req.params.id]
+    );
+
+    // Si el motivo es café agotado → actualizar stock a 0
+    if (motivo === 'cafe_agotado') {
+      await pool.query(
+        `UPDATE menu_items SET stock = 0 WHERE id = $1`,
+        [pedido.menu_item_id]
+      );
+    }
+
+    // Notificar via Socket.io
+    const io = req.app.get('io');
+    if (io) {
+      io.emit(`cafeteria:${pedido.cafeteria_id}:pedidos`, {
+        accion:    'pedido_cancelado',
+        pedido_id: req.params.id,
+        motivo,
+      });
+    }
+
+    res.json({
+      message: 'Problema reportado y pedido cancelado',
+      motivo,
+      detalle: detalle || null,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al reportar problema' });
+  }
+};
+
 module.exports = {
   getMiTurno,
   getColaPedidos,
   avanzarEstadoPedido,
-  getMisMetricas
+  getMisMetricas,
+  getPerfilClienteBarista,
+  reportarProblema,
 };

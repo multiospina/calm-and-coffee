@@ -8,19 +8,21 @@ const {
   getCosechasSinAsignar,
   asignarCosechaACafeteria,
   getDashboard,
-  getEstadisticas
+  getEstadisticas,
+  getPerfilCliente,
 } = require('./admin.controller');
 
 router.use(verificarToken);
 router.use(verificarRol('admin'));
 
-router.get('/usuarios',                           getUsuarios);
-router.get('/usuarios/:id',                       getUsuario);
-router.post('/usuarios/:id/roles',                asignarRol);
-router.put('/usuarios/:id/desactivar',            desactivarUsuario);
-router.get('/cosechas/sin-asignar',               getCosechasSinAsignar);
-router.post('/cosechas/:cosecha_id/asignar',      asignarCosechaACafeteria);
-router.get('/dashboard',                          getDashboard);
-router.get('/estadisticas',                       getEstadisticas);
+router.get('/usuarios',                        getUsuarios);
+router.get('/usuarios/:id',                    getUsuario);
+router.get('/usuarios/:id/perfil',             getPerfilCliente);
+router.post('/usuarios/:id/roles',             asignarRol);
+router.put('/usuarios/:id/desactivar',         desactivarUsuario);
+router.get('/cosechas/sin-asignar',            getCosechasSinAsignar);
+router.post('/cosechas/:cosecha_id/asignar',   asignarCosechaACafeteria);
+router.get('/dashboard',                       getDashboard);
+router.get('/estadisticas',                    getEstadisticas);
 
 module.exports = router;

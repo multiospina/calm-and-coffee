@@ -1,26 +1,43 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import api from '../../api/axios';
+import { Coffee, LogOut, RefreshCw, Bell, Flame } from 'lucide-react';
 import io from 'socket.io-client';
+import api from '../../api/axios';
 
-const ESTADOS = ['pendiente_pago','pagado','en_preparacion','listo','entregado'];
-const ESTADO_LABEL = {
-  pendiente_pago:  { label:'Pendiente pago', color:'#D4A847', bg:'rgba(212,168,71,0.15)'  },
-  pagado:          { label:'Pagado',          color:'#1B4F8A', bg:'rgba(27,79,138,0.15)'  },
-  en_preparacion:  { label:'Preparando',      color:'#C0350F', bg:'rgba(192,53,15,0.15)'  },
-  listo:           { label:'Listo',           color:'#259E65', bg:'rgba(37,158,101,0.15)' },
-  entregado:       { label:'Entregado',       color:'#6B7280', bg:'rgba(107,114,128,0.15)'},
-};
+import TurnoCard      from './components/TurnoCard';
+import MetricasGrid   from './components/MetricasGrid';
+import ColaPedidos    from './components/ColaPedidos';
+import EntregadosList from './components/EntregadosList';
+import MenuHoy        from './components/MenuHoy';
+import PerfilCliente  from './components/PerfilCliente';
+
+const TIPS_CAFE = [
+  'El café V60 requiere agua a 92°C para extraer los mejores aromas florales.',
+  'Un Geisha bien preparado tiene notas de jazmín y durazno muy pronunciadas.',
+  'El proceso natural intensifica el dulzor y el cuerpo del café.',
+  'El proceso lavado resalta la acidez brillante y la claridad de sabor.',
+  'Precalienta siempre tu taza antes de servir para mantener la temperatura.',
+  'El ratio ideal para pour over es 1:15 — 1g de café por 15ml de agua.',
+];
 
 export default function BaristaDashboard() {
   const { usuario, logout } = useAuth();
-  const navigate            = useNavigate();
-  const [pedidos,   setPedidos]   = useState([]);
-  const [metricas,  setMetricas]  = useState(null);
-  const [turno,     setTurno]     = useState(null);
-  const [cargando,  setCargando]  = useState(true);
-  const [actualizando, setActualizando] = useState(null);
+  const navigate = useNavigate();
+
+  const [pedidos,            setPedidos]            = useState([]);
+  const [metricas,           setMetricas]           = useState(null);
+  const [turno,              setTurno]              = useState(null);
+  const [menu,               setMenu]               = useState([]);
+  const [cargando,           setCargando]           = useState(true);
+  const [actualizando,       setActualizando]       = useState(null);
+  const [vistaTab,           setVistaTab]           = useState('activos');
+  const [nuevoPedido,        setNuevoPedido]        = useState(false);
+  const [pedidoSeleccionado, setPedidoSeleccionado] = useState(null);
+  const [perfilCliente,      setPerfilCliente]      = useState(null);
+  const [cargandoPerfil,     setCargandoPerfil]     = useState(false);
+
+  const tipIndex = Math.floor(Math.random() * TIPS_CAFE.length);
 
   const cargarDatos = useCallback(async () => {
     try {
@@ -32,6 +49,15 @@ export default function BaristaDashboard() {
       setTurno(tRes.data.turno);
       setPedidos(pRes.data.pedidos || []);
       setMetricas(mRes.data.metricas);
+
+      if (tRes.data.turno?.cafeteria_id) {
+        try {
+          const menuRes = await api.get(`/cliente/cafeterias/${tRes.data.turno.cafeteria_id}/menu`);
+          setMenu(menuRes.data.menu || []);
+        } catch (menuErr) {
+          console.log('Sin menú disponible', menuErr);
+        }
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -41,25 +67,22 @@ export default function BaristaDashboard() {
 
   useEffect(() => {
     cargarDatos();
-
-    // Socket.io — escuchar nuevos pedidos en tiempo real
     const socket = io('http://localhost:3000');
-    socket.on('connect', () => console.log('Socket conectado'));
-
-    socket.on(`cafeteria:pedidos`, () => {
+    socket.on('cafeteria:pedidos', () => {
+      setNuevoPedido(true);
+      setTimeout(() => setNuevoPedido(false), 3000);
       cargarDatos();
     });
-
     return () => socket.disconnect();
   }, [cargarDatos]);
 
   const avanzarEstado = async (pedidoId, estadoActual) => {
+    const ESTADOS = ['pendiente_pago', 'pagado', 'en_preparacion', 'listo', 'entregado'];
     const idx = ESTADOS.indexOf(estadoActual);
     if (idx >= ESTADOS.length - 1) return;
-    const nuevoEstado = ESTADOS[idx + 1];
     setActualizando(pedidoId);
     try {
-      await api.put(`/barista/pedidos/${pedidoId}/estado`, { estado: nuevoEstado });
+      await api.put(`/barista/pedidos/${pedidoId}/estado`, { estado: ESTADOS[idx + 1] });
       cargarDatos();
     } catch (err) {
       console.error(err);
@@ -68,184 +91,167 @@ export default function BaristaDashboard() {
     }
   };
 
-  const pedidosActivos = pedidos.filter(p => p.estado !== 'entregado' && p.estado !== 'cancelado');
+  const verPerfilCliente = async (pedido) => {
+    setPedidoSeleccionado(pedido);
+    setPerfilCliente(null);
+    setCargandoPerfil(true);
+    try {
+      const res = await api.get(`/barista/clientes/${pedido.cliente_id}/perfil`);
+      setPerfilCliente(res.data);
+    } catch (perfilErr) {
+      console.log('Sin perfil del cliente', perfilErr);
+      setPerfilCliente(null);
+    } finally {
+      setCargandoPerfil(false);
+    }
+  };
+
+  const pedidosActivos    = pedidos.filter(p => p.estado !== 'entregado' && p.estado !== 'cancelado');
   const pedidosEntregados = pedidos.filter(p => p.estado === 'entregado');
+  const pedidosUrgentes   = pedidosActivos.filter(p =>
+    Math.floor((new Date() - new Date(p.creado_en)) / 60000) >= 10 && p.estado !== 'listo'
+  );
 
   return (
-    <div className="min-h-screen" style={{ background: '#1a0800' }}>
+    <div className="min-h-screen" style={{ background: '#FAF6F0' }}>
 
-      {/* Navbar */}
-      <nav className="px-6 py-4 flex items-center justify-between"
-        style={{ background: '#C0350F' }}>
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ background: 'rgba(255,255,255,0.15)' }}>
-            <span className="text-white font-serif font-bold text-sm">C</span>
+      {/* ── NAVBAR ─────────────────────────────── */}
+      <nav className="sticky top-0 z-20"
+        style={{ background: '#C0350F', boxShadow: '0 2px 12px rgba(192,53,15,0.25)' }}>
+        <div className="max-w-2xl mx-auto px-4">
+
+          <div className="flex items-center justify-between h-12">
+            <div className="flex items-center gap-2">
+              <Coffee size={16} color="rgba(255,255,255,0.9)" />
+              <span className="font-serif text-white text-sm font-semibold">Calm and Coffee</span>
+              <span className="text-xs px-2 py-0.5 rounded-full"
+                style={{ background: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.8)' }}>
+                Barista
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              {nuevoPedido && (
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full animate-pulse"
+                  style={{ background: 'rgba(255,255,255,0.2)' }}>
+                  <Bell size={12} color="white" />
+                  <span className="text-white text-xs font-medium">Nuevo pedido</span>
+                </div>
+              )}
+              <button onClick={cargarDatos}
+                className="p-1.5 rounded-lg"
+                style={{ background: 'rgba(255,255,255,0.15)' }}>
+                <RefreshCw size={13} color="white" />
+              </button>
+              <span className="text-red-100 text-xs hidden sm:block">
+                {usuario?.nombre?.split(' ')[0]}
+              </span>
+              <button onClick={() => { logout(); navigate('/login'); }}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-white"
+                style={{ background: 'rgba(255,255,255,0.15)' }}>
+                <LogOut size={11} />
+                <span className="hidden sm:inline">Salir</span>
+              </button>
+            </div>
           </div>
-          <div>
-            <span className="text-white font-serif font-semibold">Calm and Coffee</span>
-            <span className="text-red-200 text-xs ml-2">· Barista</span>
+
+          {/* Tabs */}
+          <div className="flex gap-0">
+            {[
+              { id: 'activos',    label: 'Activos',    count: pedidosActivos.length,    urgentes: pedidosUrgentes.length },
+              { id: 'entregados', label: 'Entregados', count: pedidosEntregados.length, urgentes: 0 },
+              { id: 'menu',       label: 'Menú hoy',   count: menu.length,              urgentes: 0 },
+            ].map(t => (
+              <button key={t.id}
+                onClick={() => setVistaTab(t.id)}
+                className="flex items-center gap-2 px-4 py-2.5 text-xs font-medium flex-shrink-0"
+                style={{
+                  color:        vistaTab === t.id ? 'white' : 'rgba(255,255,255,0.45)',
+                  borderBottom: vistaTab === t.id ? '2px solid white' : '2px solid transparent',
+                  background:   'transparent',
+                }}>
+                {t.label}
+                {t.count > 0 && (
+                  <span className="flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold"
+                    style={{
+                      background: t.urgentes > 0 ? 'white' : 'rgba(255,255,255,0.25)',
+                      color:      t.urgentes > 0 ? '#C0350F' : 'white',
+                    }}>
+                    {t.count}
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-red-200 text-sm">{usuario?.nombre?.split(' ')[0]}</span>
-          <button onClick={() => { logout(); navigate('/login'); }}
-            className="text-red-300 hover:text-white text-xs transition">
-            Salir
-          </button>
         </div>
       </nav>
 
-      <div className="max-w-2xl mx-auto px-5 py-6">
+      {/* ── CONTENIDO ──────────────────────────── */}
+      <div className="max-w-2xl mx-auto px-4 py-4 space-y-4">
 
-        {/* Turno activo */}
-        {turno ? (
-          <div className="rounded-2xl p-4 mb-5 flex items-center justify-between"
-            style={{ background:'rgba(192,53,15,0.15)', border:'1px solid rgba(192,53,15,0.3)' }}>
+        <TurnoCard turno={turno} />
+        <MetricasGrid metricas={metricas} />
+
+        {/* Alerta urgentes */}
+        {pedidosUrgentes.length > 0 && vistaTab === 'activos' && (
+          <div className="rounded-2xl p-4 flex items-center gap-3"
+            style={{ background: '#FEF2F2', border: '1.5px solid #FECACA' }}>
+            <Flame size={18} color="#C0350F" />
             <div>
-              <p className="text-red-300 text-xs font-medium">TURNO ACTIVO</p>
-              <p className="text-white font-semibold">{turno.nombre}</p>
-              <p className="text-red-300 text-xs">{turno.nombre_cafeteria} · {turno.hora_inicio} — {turno.hora_fin}</p>
+              <p className="text-sm font-bold" style={{ color: '#C0350F' }}>
+                {pedidosUrgentes.length} pedido{pedidosUrgentes.length > 1 ? 's' : ''} urgente{pedidosUrgentes.length > 1 ? 's' : ''}
+              </p>
+              <p className="text-xs" style={{ color: '#F87171' }}>
+                Llevan más de 10 minutos esperando
+              </p>
             </div>
-            <div className="w-3 h-3 rounded-full bg-green-400 animate-pulse" />
-          </div>
-        ) : (
-          <div className="rounded-2xl p-4 mb-5"
-            style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)' }}>
-            <p className="text-stone-400 text-sm text-center">No tienes turno activo hoy</p>
           </div>
         )}
 
-        {/* Métricas */}
-        {metricas && (
-          <div className="grid grid-cols-4 gap-3 mb-6">
-            {[
-              { label:'Pedidos',      value: metricas.total_pedidos_hoy  || 0 },
-              { label:'Entregados',   value: metricas.entregados          || 0 },
-              { label:'Satisfacción', value: metricas.satisfaccion_promedio ? `${metricas.satisfaccion_promedio}★` : '—' },
-              { label:'Tiempo prom.', value: metricas.tiempo_promedio_min  ? `${metricas.tiempo_promedio_min}m` : '—' },
-            ].map((m, i) => (
-              <div key={i} className="rounded-2xl p-3 text-center"
-                style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)' }}>
-                <div className="text-white font-bold text-lg font-serif">{m.value}</div>
-                <div className="text-stone-500 text-xs mt-0.5">{m.label}</div>
-              </div>
-            ))}
+        {/* Tip del café */}
+        {vistaTab === 'activos' && pedidosActivos.length === 0 && !cargando && (
+          <div className="rounded-2xl p-4 flex items-start gap-3"
+            style={{ background: 'white', border: '1px solid #E8D9B8' }}>
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: '#FAF6F0' }}>
+              <Coffee size={16} color="#92400e" />
+            </div>
+            <div>
+              <p className="text-xs font-medium mb-1" style={{ color: '#92400e' }}>TIP DEL CAFÉ</p>
+              <p className="text-stone-500 text-sm leading-relaxed italic">
+                {TIPS_CAFE[tipIndex]}
+              </p>
+            </div>
           </div>
         )}
 
+        {/* Contenido según tab */}
         {cargando ? (
           <div className="flex justify-center py-10">
-            <div className="w-8 h-8 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-7 h-7 border-2 border-red-200 border-t-red-500 rounded-full animate-spin" />
           </div>
+        ) : vistaTab === 'activos' ? (
+          <ColaPedidos
+            pedidos={pedidosActivos}
+            onAvanzar={avanzarEstado}
+            onVerPerfil={verPerfilCliente}
+            actualizando={actualizando}
+          />
+        ) : vistaTab === 'entregados' ? (
+          <EntregadosList pedidos={pedidosEntregados} />
         ) : (
-          <>
-            {/* Cola de pedidos activos */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-white font-serif font-bold">
-                  Cola de pedidos
-                  {pedidosActivos.length > 0 && (
-                    <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-normal"
-                      style={{ background:'#C0350F', color:'white' }}>
-                      {pedidosActivos.length}
-                    </span>
-                  )}
-                </h2>
-                <button onClick={cargarDatos}
-                  className="text-red-400 text-xs hover:text-white transition">
-                  ↻ Actualizar
-                </button>
-              </div>
-
-              {pedidosActivos.length === 0 ? (
-                <div className="rounded-2xl p-8 text-center"
-                  style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)' }}>
-                  <div className="text-4xl mb-3">☕</div>
-                  <p className="text-stone-400 text-sm">No hay pedidos activos</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {pedidosActivos.map(p => {
-                    const est = ESTADO_LABEL[p.estado] || ESTADO_LABEL.pendiente_pago;
-                    const idx = ESTADOS.indexOf(p.estado);
-                    const siguienteEstado = ESTADOS[idx+1];
-                    const minutos = Math.floor((new Date() - new Date(p.creado_en)) / 60000);
-
-                    return (
-                      <div key={p.id} className="rounded-2xl p-4"
-                        style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)' }}>
-
-                        <div className="flex items-start justify-between mb-3">
-                          <div>
-                            <h3 className="text-white font-semibold">{p.nombre_cafe}</h3>
-                            <p className="text-stone-400 text-xs mt-0.5">
-                              {p.nombre_cliente} · {p.mesa}
-                            </p>
-                            {p.notas_cliente && (
-                              <p className="text-amber-400 text-xs mt-1 italic">
-                                📝 {p.notas_cliente}
-                              </p>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <span className="text-xs px-2 py-1 rounded-full font-medium"
-                              style={{ background: est.bg, color: est.color }}>
-                              {est.label}
-                            </span>
-                            <p className="text-stone-600 text-xs mt-1">{minutos}m esperando</p>
-                          </div>
-                        </div>
-
-                        {/* Barra de progreso del estado */}
-                        <div className="flex gap-1 mb-3">
-                          {ESTADOS.slice(0,4).map((e, i) => (
-                            <div key={e} className="flex-1 h-1 rounded-full"
-                              style={{ background: ESTADOS.indexOf(p.estado) >= i ? '#C0350F' : 'rgba(255,255,255,0.1)' }} />
-                          ))}
-                        </div>
-
-                        {siguienteEstado && siguienteEstado !== 'cancelado' && (
-                          <button
-                            onClick={() => avanzarEstado(p.id, p.estado)}
-                            disabled={actualizando === p.id}
-                            className="w-full py-2.5 rounded-xl text-white text-xs font-medium transition"
-                            style={{ background: actualizando === p.id ? '#44403c' : '#C0350F' }}>
-                            {actualizando === p.id
-                              ? 'Actualizando...'
-                              : `→ Marcar como ${ESTADO_LABEL[siguienteEstado]?.label}`}
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Pedidos entregados hoy */}
-            {pedidosEntregados.length > 0 && (
-              <div>
-                <h2 className="text-stone-600 font-serif font-bold mb-3 text-sm">
-                  Entregados hoy ({pedidosEntregados.length})
-                </h2>
-                <div className="space-y-2">
-                  {pedidosEntregados.map(p => (
-                    <div key={p.id} className="rounded-xl p-3 flex items-center justify-between"
-                      style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.04)' }}>
-                      <div>
-                        <p className="text-stone-400 text-sm">{p.nombre_cafe}</p>
-                        <p className="text-stone-600 text-xs">{p.mesa}</p>
-                      </div>
-                      <span className="text-green-600 text-xs">✓ Entregado</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </>
+          <MenuHoy menu={menu} />
         )}
       </div>
+
+      {/* ── MODAL PERFIL CLIENTE ────────────────── */}
+      {pedidoSeleccionado && (
+        <PerfilCliente
+          pedido={pedidoSeleccionado}
+          perfil={perfilCliente}
+          cargando={cargandoPerfil}
+          onCerrar={() => { setPedidoSeleccionado(null); setPerfilCliente(null); }}
+        />
+      )}
     </div>
   );
 }

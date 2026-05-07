@@ -31,7 +31,6 @@ const getUsuarios = async (req, res) => {
     query += ' GROUP BY u.id ORDER BY u.creado_en DESC';
 
     const result = await pool.query(query, params);
-
     res.json({ usuarios: result.rows, total: result.rows.length });
   } catch (err) {
     console.error(err);
@@ -89,9 +88,7 @@ const asignarRol = async (req, res) => {
       [req.params.id, rol.rows[0].id, req.usuario.id]
     );
 
-    res.json({
-      message: `Rol '${rol_nombre}' asignado exitosamente`
-    });
+    res.json({ message: `Rol '${rol_nombre}' asignado exitosamente` });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error al asignar rol' });
@@ -101,9 +98,7 @@ const asignarRol = async (req, res) => {
 // ── PUT /api/admin/usuarios/:id/desactivar ───────────────────
 const desactivarUsuario = async (req, res) => {
   if (req.params.id === req.usuario.id) {
-    return res.status(400).json({
-      error: 'No puedes desactivarte a ti mismo'
-    });
+    return res.status(400).json({ error: 'No puedes desactivarte a ti mismo' });
   }
 
   try {
@@ -118,10 +113,7 @@ const desactivarUsuario = async (req, res) => {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
 
-    res.json({
-      message: 'Usuario desactivado exitosamente',
-      usuario: result.rows[0]
-    });
+    res.json({ message: 'Usuario desactivado exitosamente', usuario: result.rows[0] });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error al desactivar usuario' });
@@ -149,10 +141,7 @@ const getCosechasSinAsignar = async (req, res) => {
        ORDER BY c.fecha_cierre DESC`
     );
 
-    res.json({
-      cosechas: result.rows,
-      total:    result.rows.length
-    });
+    res.json({ cosechas: result.rows, total: result.rows.length });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error al obtener cosechas' });
@@ -177,9 +166,7 @@ const asignarCosechaACafeteria = async (req, res) => {
     );
 
     if (cosecha.rows.length === 0) {
-      return res.status(404).json({
-        error: 'Cosecha no encontrada o no está cerrada'
-      });
+      return res.status(404).json({ error: 'Cosecha no encontrada o no está cerrada' });
     }
 
     const cafeteria = await pool.query(
@@ -200,8 +187,7 @@ const asignarCosechaACafeteria = async (req, res) => {
     );
 
     await pool.query(
-      `UPDATE cosechas SET estado = 'asignada'
-       WHERE id = $1`,
+      `UPDATE cosechas SET estado = 'asignada' WHERE id = $1`,
       [req.params.cosecha_id]
     );
 
@@ -219,9 +205,9 @@ const getDashboard = async (req, res) => {
   try {
     const usuarios = await pool.query(
       `SELECT
-         COUNT(*)                                              AS total_usuarios,
-         COUNT(CASE WHEN activo = true  THEN 1 END)           AS usuarios_activos,
-         COUNT(CASE WHEN activo = false THEN 1 END)           AS usuarios_inactivos
+         COUNT(*)                                    AS total_usuarios,
+         COUNT(CASE WHEN activo = true  THEN 1 END)  AS usuarios_activos,
+         COUNT(CASE WHEN activo = false THEN 1 END)  AS usuarios_inactivos
        FROM usuarios`
     );
 
@@ -247,21 +233,21 @@ const getDashboard = async (req, res) => {
 
     const pedidos = await pool.query(
       `SELECT
-         COUNT(*)                                            AS total_pedidos,
+         COUNT(*)                                              AS total_pedidos,
          COALESCE(SUM(pa.monto)
-           FILTER (WHERE pa.estado = 'confirmado'), 0)      AS ingresos_totales,
-         ROUND(AVG(v.cafe_experiencia)::numeric, 1)         AS satisfaccion_global
+           FILTER (WHERE pa.estado = 'confirmado'), 0)        AS ingresos_totales,
+         ROUND(AVG(v.cafe_experiencia)::numeric, 1)           AS satisfaccion_global
        FROM pedidos p
-       LEFT JOIN pagos pa        ON pa.pedido_id = p.id
-       LEFT JOIN valoraciones v  ON v.pedido_id  = p.id`
+       LEFT JOIN pagos pa       ON pa.pedido_id = p.id
+       LEFT JOIN valoraciones v ON v.pedido_id  = p.id`
     );
 
     res.json({
-      usuarios:        usuarios.rows[0],
-      usuarios_por_rol:porRol.rows,
-      cosechas:        cosechas.rows,
-      cafeterias:      cafeterias.rows[0],
-      pedidos:         pedidos.rows[0]
+      usuarios:         usuarios.rows[0],
+      usuarios_por_rol: porRol.rows,
+      cosechas:         cosechas.rows,
+      cafeterias:       cafeterias.rows[0],
+      pedidos:          pedidos.rows[0],
     });
   } catch (err) {
     console.error(err);
@@ -304,7 +290,7 @@ const getEstadisticas = async (req, res) => {
 
     res.json({
       top_cafes:  topCafes.rows,
-      top_fincas: topFincas.rows
+      top_fincas: topFincas.rows,
     });
   } catch (err) {
     console.error(err);
@@ -312,9 +298,48 @@ const getEstadisticas = async (req, res) => {
   }
 };
 
+// ── GET /api/admin/usuarios/:id/perfil ───────────────────────
+const getPerfilCliente = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [pasaporteRes, preferenciasRes] = await Promise.all([
+      pool.query(
+        `SELECT pc.puntos, pc.nivel, pc.cafes_catados,
+                pc.cafeterias_visitadas, pc.variedades_catadas,
+                pc.procesos_catados, u.nombre AS nombre_cliente
+         FROM pasaporte_cafetero pc
+         JOIN usuarios u ON u.id = pc.cliente_id
+         WHERE pc.cliente_id = $1`,
+        [id]
+      ),
+      pool.query(
+        `SELECT intensidad, sabores_favoritos, momentos_favoritos
+         FROM preferencias_usuario
+         WHERE cliente_id = $1
+         ORDER BY creado_en DESC LIMIT 1`,
+        [id]
+      ),
+    ]);
+
+    res.json({
+      pasaporte:    pasaporteRes.rows[0]    || null,
+      preferencias: preferenciasRes.rows[0] || null,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al obtener perfil' });
+  }
+};
+
 module.exports = {
-  getUsuarios, getUsuario,
-  asignarRol, desactivarUsuario,
-  getCosechasSinAsignar, asignarCosechaACafeteria,
-  getDashboard, getEstadisticas
+  getUsuarios,
+  getUsuario,
+  asignarRol,
+  desactivarUsuario,
+  getCosechasSinAsignar,
+  asignarCosechaACafeteria,
+  getDashboard,
+  getEstadisticas,
+  getPerfilCliente,
 };
