@@ -28,6 +28,9 @@ const clienteRoutes = require('./modules/cliente/cliente.routes');
 const baristaRoutes = require('./modules/barista/barista.routes');
 const gerenteRoutes = require('./modules/gerente/gerente.routes');
 const adminRoutes = require('./modules/admin/admin.routes');
+const notificacionesRoutes = require('./modules/notificaciones/notificaciones.routes');
+
+app.use('/api/notificaciones', notificacionesRoutes); 
 
 app.use('/api/admin', adminRoutes);
 app.use('/api/gerente', gerenteRoutes);

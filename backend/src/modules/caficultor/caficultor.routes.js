@@ -16,6 +16,8 @@ const {
 const {
   getEtapas, crearEtapa
 } = require('./etapas.controller');
+const { getDashboard, getFeedback } = require('./dashboard.controller');
+
 
 router.use(verificarToken);
 router.use(verificarRol('caficultor'));
@@ -43,4 +45,7 @@ router.post('/cosechas/:id/cerrar',  cerrarCosecha);
 router.get('/cosechas/:cosecha_id/etapas',  getEtapas);
 router.post('/cosechas/:cosecha_id/etapas', crearEtapa);
 
+
+router.get('/dashboard', getDashboard);
+router.get('/feedback',  getFeedback);
 module.exports = router;
