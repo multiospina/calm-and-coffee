@@ -68,12 +68,12 @@ const asignarRol = async (req, res) => {
     if (rol.rows.length === 0) {
       return res.status(404).json({ error: `Rol '${rol_nombre}' no existe` });
     }
-    // 1. Eliminar TODOS los roles anteriores del usuario
+    // Eliminar todos los roles anteriores
     await pool.query(
       'DELETE FROM usuario_roles WHERE usuario_id = $1',
       [req.params.id]
     );
-    // 2. Insertar el nuevo rol único
+    // Insertar el nuevo rol único
     await pool.query(
       `INSERT INTO usuario_roles (usuario_id, rol_id, asignado_por)
        VALUES ($1, $2, $3)`,
@@ -176,6 +176,39 @@ const asignarCosechaACafeteria = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error al asignar cosecha' });
+  }
+};
+
+// ── POST /api/admin/cafeterias ───────────────────────────────
+const crearCafeteria = async (req, res) => {
+  const { nombre, municipio, direccion, descripcion, gerente_id } = req.body;
+  if (!nombre || !municipio || !gerente_id) {
+    return res.status(400).json({ error: 'nombre, municipio y gerente_id son obligatorios' });
+  }
+  try {
+    const gerente = await pool.query(
+      `SELECT u.id FROM usuarios u
+       JOIN usuario_roles ur ON ur.usuario_id = u.id
+       JOIN roles r ON r.id = ur.rol_id
+       WHERE u.id = $1 AND r.nombre = 'gerente'`,
+      [gerente_id]
+    );
+    if (gerente.rows.length === 0) {
+      return res.status(400).json({ error: 'El usuario no tiene rol de gerente' });
+    }
+    const result = await pool.query(
+      `INSERT INTO cafeterias (nombre, municipio, direccion, descripcion, gerente_id, activa)
+       VALUES ($1, $2, $3, $4, $5, true)
+       RETURNING *`,
+      [nombre, municipio, direccion || null, descripcion || null, gerente_id]
+    );
+    res.status(201).json({
+      message: 'Cafetería creada exitosamente',
+      cafeteria: result.rows[0]
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al crear cafetería' });
   }
 };
 
@@ -310,6 +343,7 @@ module.exports = {
   desactivarUsuario,
   getCosechasSinAsignar,
   asignarCosechaACafeteria,
+  crearCafeteria,
   getDashboard,
   getEstadisticas,
   getPerfilCliente,
