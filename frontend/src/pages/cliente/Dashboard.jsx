@@ -1,212 +1,178 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import {
+  Home, Compass, Clock, BookOpen,
+  User, LogOut, RefreshCw
+} from 'lucide-react';
 import api from '../../api/axios';
+import PanelNotificaciones from '../../components/shared/PanelNotificaciones';
+
+import InicioCliente    from './components/InicioCliente';
+import ExplorarCafes    from './components/ExplorarCafes';
+import HistorialCatas   from './components/HistorialCatas';
+import PasaporteCafe    from './components/PasaporteCafe';
+import PerfilClienteTab from './components/PerfilClienteTab';
+
+const TABS = [
+  { id:'inicio',    label:'Inicio',    icon: Home     },
+  { id:'explorar',  label:'Explorar',  icon: Compass  },
+  { id:'historial', label:'Historial', icon: Clock    },
+  { id:'pasaporte', label:'Pasaporte', icon: BookOpen },
+  { id:'perfil',    label:'Perfil',    icon: User     },
+];
+
+// Detecta el tab inicial basado en la ruta
+const getTabFromPath = (pathname) => {
+  if (pathname.includes('explorar'))  return 'explorar';
+  if (pathname.includes('historial')) return 'historial';
+  if (pathname.includes('pasaporte')) return 'pasaporte';
+  return 'inicio';
+};
 
 export default function ClienteDashboard() {
   const { usuario, logout } = useAuth();
-  const navigate = useNavigate();
-  const [data, setData]       = useState(null);
+  const navigate  = useNavigate();
+  const location  = useLocation();
+  const [tab,      setTab]      = useState(getTabFromPath(location.pathname));
+  const [data,     setData]     = useState(null);
   const [cargando, setCargando] = useState(true);
-  const [qr, setQr]           = useState('');
 
-  useEffect(() => {
-    const cargar = async () => {
-      try {
-        const res = await api.get('/cliente/dashboard');
-        setData(res.data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setCargando(false);
-      }
-    };
-    cargar();
-  }, []);
+  useEffect(() => { cargar(); }, []);
 
-  const handleEscanear = (e) => {
-    e.preventDefault();
-    if (qr.trim()) navigate(`/trazabilidad/${qr.trim()}`);
-  };
-
-  const nivelInfo = {
-    0: { nombre: 'Curioso',        color: '#6B7280', next: 50  },
-    1: { nombre: 'Explorador',     color: '#1D7A4E', next: 150 },
-    2: { nombre: 'Conocedor',      color: '#1B4F8A', next: 350 },
-    3: { nombre: 'Entendido',      color: '#6B3A8A', next: 700 },
-    4: { nombre: 'Maestro Catador',color: '#D4A847', next: 9999},
+  const cargar = async () => {
+    setCargando(true);
+    try {
+      const res = await api.get('/cliente/dashboard');
+      setData(res.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setCargando(false);
+    }
   };
 
   return (
-    <div className="min-h-screen" style={{ background: '#f0fff8' }}>
+    <div className="min-h-screen" style={{ background:'#F0FFF8' }}>
 
-      {/* Navbar */}
-      <nav className="px-6 py-4 flex items-center justify-between" style={{ background: '#1D7A4E' }}>
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#259E65' }}>
-            <span className="text-white font-serif font-bold text-sm">C</span>
+      {/* ── NAVBAR DESKTOP ── solo md+ */}
+      <nav className="hidden md:block sticky top-0 z-20"
+        style={{ background:'#1D7A4E', boxShadow:'0 2px 12px rgba(29,122,78,0.25)' }}>
+        <div className="max-w-5xl mx-auto px-6">
+          <div className="flex items-center justify-between h-14">
+
+            {/* Logo */}
+            <div className="flex items-center gap-3">
+              <img src="/logo.png" alt="logo" className="w-8 h-8 object-contain rounded-lg" />
+              <span className="font-serif text-white font-semibold">Calm and Coffee</span>
+              <span className="text-xs px-2 py-0.5 rounded-full"
+                style={{ background:'rgba(255,255,255,0.15)', color:'rgba(255,255,255,0.8)' }}>
+                Cliente
+              </span>
+            </div>
+
+            {/* Tabs desktop */}
+            <div className="flex items-center gap-1">
+              {TABS.map(t => (
+                <button key={t.id} onClick={() => setTab(t.id)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition"
+                  style={{
+                    background: tab===t.id ? 'rgba(255,255,255,0.2)' : 'transparent',
+                    color:      tab===t.id ? 'white' : 'rgba(255,255,255,0.6)',
+                  }}>
+                  <t.icon size={13} />
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Acciones */}
+            <div className="flex items-center gap-2">
+              <button onClick={cargar} className="p-2 rounded-xl"
+                style={{ background:'rgba(255,255,255,0.15)' }}>
+                <RefreshCw size={13} color="white" />
+              </button>
+              <span className="text-green-100 text-xs">{usuario?.nombre?.split(' ')[0]}</span>
+              <PanelNotificaciones colorAccent="#1D7A4E" />
+              <button onClick={() => { logout(); navigate('/login'); }}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs text-white"
+                style={{ background:'rgba(255,255,255,0.15)' }}>
+                <LogOut size={11} />
+                Salir
+              </button>
+            </div>
           </div>
-          <span className="text-white font-serif font-semibold">Calm and Coffee</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/cliente/explorar')}
-            className="text-green-200 hover:text-white text-sm transition">
-            Explorar
-          </button>
-          <button onClick={() => navigate('/cliente/historial')}
-            className="text-green-200 hover:text-white text-sm transition">
-            Historial
-          </button>
-          <button onClick={() => navigate('/cliente/pasaporte')}
-            className="text-green-200 hover:text-white text-sm transition">
-            Pasaporte
-          </button>
-          <button onClick={() => { logout(); navigate('/login'); }}
-            className="text-green-300 hover:text-white text-xs transition">
-            Salir
-          </button>
         </div>
       </nav>
 
-      <div className="max-w-2xl mx-auto px-5 py-8">
-
-        {/* Saludo */}
-        <div className="mb-6">
-          <h1 className="font-serif text-2xl font-bold text-stone-800">
-            ¡Hola, {usuario?.nombre?.split(' ')[0]}! ☕
-          </h1>
-          <p className="text-stone-500 text-sm mt-1">
-            ¿Qué café vas a explorar hoy?
-          </p>
-        </div>
-
-        {/* Escanear QR */}
-        <div className="rounded-2xl p-5 mb-5" style={{ background: '#1D7A4E' }}>
-          <p className="text-green-200 text-xs font-medium mb-1 tracking-wider">ESCANEAR QR</p>
-          <p className="text-white font-serif text-lg font-semibold mb-4">
-            Conoce la historia de tu café
-          </p>
-          <form onSubmit={handleEscanear} className="flex gap-2">
-            <input
-              value={qr}
-              onChange={e => setQr(e.target.value)}
-              placeholder="CEA-QR-GEISHA-2025-001"
-              className="flex-1 px-4 py-2.5 rounded-xl text-sm outline-none"
-              style={{ background: 'rgba(255,255,255,0.15)', color: 'white', border: '1px solid rgba(255,255,255,0.2)' }}
-            />
-            <button type="submit"
-              className="px-5 py-2.5 rounded-xl text-sm font-medium transition"
-              style={{ background: 'white', color: '#1D7A4E' }}>
-              Ver →
-            </button>
-          </form>
-          <p className="text-green-300 text-xs mt-2">
-            💡 Prueba con: CEA-QR-GEISHA-2025-001
-          </p>
-        </div>
-
-        {cargando ? (
-          <div className="flex justify-center py-10">
-            <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
+      {/* ── TOPBAR MÓVIL ── */}
+      <div className="md:hidden sticky top-0 z-20"
+        style={{ background:'#1D7A4E', boxShadow:'0 2px 12px rgba(29,122,78,0.25)' }}>
+        <div className="flex items-center justify-between px-4 h-12">
+          <div className="flex items-center gap-2">
+            <img src="/logo.png" alt="logo" className="w-8 h-8 object-contain rounded-lg" />
+            <div>
+              <p className="font-serif text-white text-sm font-semibold leading-none">Calm and Coffee</p>
+              <p className="text-xs" style={{ color:'rgba(255,255,255,0.6)' }}>
+                {usuario?.nombre?.split(' ')[0]} · Cliente
+              </p>
+            </div>
           </div>
-        ) : data && (
+          <div className="flex items-center gap-2">
+            <button onClick={cargar} className="w-8 h-8 rounded-xl flex items-center justify-center"
+              style={{ background:'rgba(255,255,255,0.15)' }}>
+              <RefreshCw size={13} color="white" />
+            </button>
+            <PanelNotificaciones colorAccent="#1D7A4E" />
+          </div>
+        </div>
+      </div>
+
+      {/* ── CONTENIDO ── */}
+      <div className="md:max-w-5xl md:mx-auto px-4 pt-4 pb-32 md:pb-8 space-y-4">
+        {cargando && tab === 'inicio' ? (
+          <div className="flex justify-center py-20">
+            <div className="w-7 h-7 border-2 border-green-200 border-t-green-500 rounded-full animate-spin" />
+          </div>
+        ) : (
           <>
-            {/* Pasaporte */}
-            {data.pasaporte && (
-              <div className="rounded-2xl p-5 mb-5 cursor-pointer"
-                onClick={() => navigate('/cliente/pasaporte')}
-                style={{ background: 'white', border: '1px solid #A8E8CC' }}>
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-stone-500 text-xs font-medium tracking-wider">MI PASAPORTE CAFETERO</p>
-                  <span className="text-xs text-green-600 font-medium">Ver completo →</span>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
-                    style={{ background: '#edfaf4' }}>
-                    <span className="text-2xl">☕</span>
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-semibold text-stone-800">
-                        {nivelInfo[data.pasaporte.nivel]?.nombre || 'Curioso'}
-                      </span>
-                      <span className="font-bold text-green-600">
-                        {data.pasaporte.puntos} pts
-                      </span>
-                    </div>
-                    <div className="w-full h-2 rounded-full" style={{ background: '#edfaf4' }}>
-                      <div className="h-2 rounded-full transition-all"
-                        style={{
-                          background: '#1D7A4E',
-                          width: `${Math.min((data.pasaporte.puntos / (nivelInfo[data.pasaporte.nivel]?.next || 50)) * 100, 100)}%`
-                        }} />
-                    </div>
-                    <p className="text-stone-400 text-xs mt-1">
-                      {data.pasaporte.cafes_catados} cafés catados · {data.pasaporte.cafeterias_visitadas} cafeterías
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Recomendaciones */}
-            {data.recomendaciones?.length > 0 && (
-              <div className="mb-5">
-                <h2 className="font-serif text-lg font-bold text-stone-800 mb-3">
-                  Para ti hoy ✨
-                </h2>
-                <div className="space-y-3">
-                  {data.recomendaciones.map((r, i) => (
-                    <div key={i}
-                      onClick={() => r.qr_codigo && navigate(`/trazabilidad/${r.qr_codigo}`)}
-                      className="bg-white rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:shadow-md transition"
-                      style={{ border: '1px solid #A8E8CC' }}>
-                      <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
-                        style={{ background: '#edfaf4' }}>
-                        <span className="text-xl">☕</span>
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-stone-800 text-sm">{r.nombre}</h3>
-                        <p className="text-stone-400 text-xs mt-0.5">
-                          {r.variedad} · {r.proceso} · {r.nombre_finca}
-                        </p>
-                        <p className="text-stone-400 text-xs">{r.municipio} · {r.altitud_msnm} msnm</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-stone-800 text-sm">
-                          ${parseInt(r.precio).toLocaleString('es-CO')}
-                        </p>
-                        {r.rating && (
-                          <p className="text-amber-500 text-xs">★ {r.rating}</p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Insignias pendientes */}
-            {data.insignias_pendientes?.length > 0 && (
-              <div>
-                <h2 className="font-serif text-lg font-bold text-stone-800 mb-3">
-                  Próximas insignias 🏅
-                </h2>
-                <div className="grid grid-cols-3 gap-3">
-                  {data.insignias_pendientes.map((ins, i) => (
-                    <div key={i} className="bg-white rounded-2xl p-3 text-center"
-                      style={{ border: '1px solid #e2e8f0', opacity: 0.7 }}>
-                      <div className="text-2xl mb-1">🔒</div>
-                      <p className="text-stone-600 text-xs font-medium">{ins.nombre}</p>
-                      <p className="text-stone-400 text-xs mt-0.5">+{ins.puntos_otorga} pts</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {tab === 'inicio'    && <InicioCliente    data={data} usuario={usuario} onTabChange={setTab} />}
+            {tab === 'explorar'  && <ExplorarCafes    />}
+            {tab === 'historial' && <HistorialCatas   />}
+            {tab === 'pasaporte' && <PasaporteCafe    />}
+            {tab === 'perfil'    && <PerfilClienteTab usuario={usuario} data={data} logout={logout} />}
           </>
         )}
       </div>
+
+      {/* ── NAVBAR BOTTOM MÓVIL ── */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 px-4 pb-4">
+        <div className="rounded-3xl px-2 py-2"
+          style={{
+            background:'rgba(255,255,255,0.97)',
+            backdropFilter:'blur(20px)',
+            boxShadow:'0 -4px 32px rgba(29,122,78,0.15), 0 8px 32px rgba(0,0,0,0.08)',
+            border:'1px solid rgba(168,232,204,0.5)'
+          }}>
+          <div className="flex items-center justify-around">
+            {TABS.map(t => {
+              const activo = tab === t.id;
+              return (
+                <button key={t.id} onClick={() => setTab(t.id)}
+                  className="flex flex-col items-center gap-1 px-3 py-2 rounded-2xl transition-all"
+                  style={{ background: activo ? '#1D7A4E' : 'transparent', minWidth:'56px' }}>
+                  <t.icon size={activo?20:18} color={activo?'white':'#94A3B8'} />
+                  <span className="font-medium"
+                    style={{ fontSize:'10px', color: activo?'white':'#94A3B8' }}>
+                    {t.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
     </div>
   );
 }

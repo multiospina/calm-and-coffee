@@ -77,10 +77,11 @@ const getFeedback = async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT
-         v.cafe_aroma, v.cafe_sabor, v.cafe_cuerpo,
+         v.cafe_sabor, v.cafe_cuerpo,
          v.cafe_balance, v.cafe_experiencia,
-         v.precio_justo, v.notas_adicionales,
-         v.creado_en,
+         v.barista_atencion, v.tienda_ambiente,
+         v.precio_justo, v.notas_sabor,
+         v.comentario, v.creado_en,
          u.nombre  AS nombre_cliente,
          mi.nombre AS nombre_cafe,
          c.variedad, c.proceso,
@@ -96,7 +97,6 @@ const getFeedback = async (req, res) => {
        LIMIT 20`,
       [req.usuario.id]
     );
-
     res.json({ feedback: result.rows });
   } catch (err) {
     console.error(err);
@@ -104,4 +104,63 @@ const getFeedback = async (req, res) => {
   }
 };
 
-module.exports = { getDashboard, getFeedback };
+
+const getImpacto = async (req, res) => {
+  try {
+    const tazas = await pool.query(
+      `SELECT COUNT(DISTINCT p.id) AS total_tazas
+       FROM pedidos p
+       JOIN menu_items mi ON mi.id = p.menu_item_id
+       JOIN cosechas c    ON c.id  = mi.cosecha_id
+       JOIN fincas f      ON f.id  = c.finca_id
+       WHERE f.caficultor_id = $1
+         AND p.estado = 'entregado'`,
+      [req.usuario.id]
+    );
+
+    const cafeterias = await pool.query(
+      `SELECT ca.nombre, ca.municipio,
+              COUNT(DISTINCT p.id) AS total_pedidos,
+              ROUND(AVG(v.cafe_experiencia)::numeric,1) AS rating
+       FROM cafeterias ca
+       JOIN pedidos p      ON p.cafeteria_id = ca.id
+       JOIN menu_items mi  ON mi.id = p.menu_item_id
+       JOIN cosechas c     ON c.id  = mi.cosecha_id
+       JOIN fincas f       ON f.id  = c.finca_id
+       LEFT JOIN valoraciones v ON v.pedido_id = p.id
+       WHERE f.caficultor_id = $1
+         AND p.estado = 'entregado'
+       GROUP BY ca.id
+       ORDER BY total_pedidos DESC`,
+      [req.usuario.id]
+    );
+
+    const promedios = await pool.query(
+      `SELECT
+         ROUND(AVG(v.cafe_sabor)::numeric,1)       AS sabor,
+         ROUND(AVG(v.cafe_cuerpo)::numeric,1)      AS cuerpo,
+         ROUND(AVG(v.cafe_balance)::numeric,1)     AS balance,
+         ROUND(AVG(v.cafe_experiencia)::numeric,1) AS experiencia,
+         ROUND(AVG(v.tienda_ambiente)::numeric,1)  AS ambiente,
+         ROUND(AVG(v.barista_atencion)::numeric,1) AS atencion
+       FROM valoraciones v
+       JOIN pedidos p     ON p.id  = v.pedido_id
+       JOIN menu_items mi ON mi.id = p.menu_item_id
+       JOIN cosechas c    ON c.id  = mi.cosecha_id
+       JOIN fincas f      ON f.id  = c.finca_id
+       WHERE f.caficultor_id = $1`,
+      [req.usuario.id]
+    );
+
+    res.json({
+      total_tazas: parseInt(tazas.rows[0]?.total_tazas || 0),
+      cafeterias:  cafeterias.rows,
+      promedios:   promedios.rows[0],
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al obtener impacto' });
+  }
+};
+
+module.exports = { getDashboard, getFeedback, getImpacto };

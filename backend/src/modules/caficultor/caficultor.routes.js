@@ -16,36 +16,39 @@ const {
 const {
   getEtapas, crearEtapa
 } = require('./etapas.controller');
-const { getDashboard, getFeedback } = require('./dashboard.controller');
-
+const {
+  getDashboard, getFeedback, getImpacto
+} = require('./dashboard.controller');
 
 router.use(verificarToken);
 router.use(verificarRol('caficultor'));
 
 // Fincas
-router.get('/fincas',          getMisFincas);
-router.get('/fincas/:id',      getFinca);
-router.post('/fincas',         crearFinca);
-router.put('/fincas/:id',      actualizarFinca);
+router.get('/fincas',              getMisFincas);
+router.get('/fincas/:id',          getFinca);
+router.post('/fincas',             crearFinca);
+router.put('/fincas/:id',          actualizarFinca);
 
 // Lotes
-router.get('/fincas/:finca_id/lotes',      getMisLotes);
-router.get('/lotes/:id',                   getLote);
-router.post('/fincas/:finca_id/lotes',     crearLote);
-router.put('/lotes/:id',                   actualizarLote);
+router.get('/fincas/:finca_id/lotes',  getMisLotes);
+router.get('/lotes/:id',               getLote);
+router.post('/fincas/:finca_id/lotes', crearLote);
+router.put('/lotes/:id',               actualizarLote);
 
 // Cosechas
-router.get('/cosechas',              getMisCosechas);
-router.get('/cosechas/:id',          getCosecha);
-router.post('/cosechas',             crearCosecha);
-router.put('/cosechas/:id',          actualizarCosecha);
-router.post('/cosechas/:id/cerrar',  cerrarCosecha);
+router.get('/cosechas',             getMisCosechas);
+router.get('/cosechas/:id',         getCosecha);
+router.post('/cosechas',            crearCosecha);
+router.put('/cosechas/:id',         actualizarCosecha);
+router.post('/cosechas/:id/cerrar', cerrarCosecha);
 
 // Etapas
 router.get('/cosechas/:cosecha_id/etapas',  getEtapas);
 router.post('/cosechas/:cosecha_id/etapas', crearEtapa);
 
-
+// Dashboard, Feedback, Impacto
 router.get('/dashboard', getDashboard);
 router.get('/feedback',  getFeedback);
+router.get('/impacto',   getImpacto);
+
 module.exports = router;

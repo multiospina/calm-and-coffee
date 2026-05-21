@@ -22,24 +22,23 @@ app.use(morgan('dev'));
 app.use(express.json());
 
 // ── Rutas ────────────────────────────────────
-const authRoutes       = require('./modules/auth/auth.routes');
-const caficultorRoutes = require('./modules/caficultor/caficultor.routes');
-const clienteRoutes = require('./modules/cliente/cliente.routes');
-const baristaRoutes = require('./modules/barista/barista.routes');
-const gerenteRoutes = require('./modules/gerente/gerente.routes');
-const adminRoutes = require('./modules/admin/admin.routes');
+const authRoutes           = require('./modules/auth/auth.routes');
+const caficultorRoutes     = require('./modules/caficultor/caficultor.routes');
+const clienteRoutes        = require('./modules/cliente/cliente.routes');
+const baristaRoutes        = require('./modules/barista/barista.routes');
+const gerenteRoutes        = require('./modules/gerente/gerente.routes');
+const adminRoutes          = require('./modules/admin/admin.routes');
+const catadorRoutes        = require('./modules/catador/catador.routes');
 const notificacionesRoutes = require('./modules/notificaciones/notificaciones.routes');
 
-app.use('/api/notificaciones', notificacionesRoutes); 
-
-app.use('/api/admin', adminRoutes);
-app.use('/api/gerente', gerenteRoutes);
-app.use('/api/barista', baristaRoutes);
-app.use('/api/cliente', clienteRoutes);
-app.use('/api/auth',       authRoutes);
-app.use('/api/caficultor', caficultorRoutes);
-
-
+app.use('/api/notificaciones', notificacionesRoutes);
+app.use('/api/admin',          adminRoutes);
+app.use('/api/gerente',        gerenteRoutes);
+app.use('/api/barista',        baristaRoutes);
+app.use('/api/cliente',        clienteRoutes);
+app.use('/api/auth',           authRoutes);
+app.use('/api/caficultor',     caficultorRoutes);
+app.use('/api/catador',        catadorRoutes);
 
 // ── Ruta de salud ────────────────────────────
 app.get('/api/health', async (req, res) => {
@@ -57,7 +56,6 @@ app.get('/api/health', async (req, res) => {
 });
 
 // ── Socket.io ────────────────────────────────
-// Exponer io para que los controllers puedan emitir eventos
 app.set('io', io);
 io.on('connection', (socket) => {
   console.log(`🔌 Socket conectado: ${socket.id}`);

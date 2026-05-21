@@ -11,9 +11,10 @@ import {
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line, Legend
+  PieChart, Pie, Cell
 } from 'recharts';
 import api from '../../api/axios';
+import PanelNotificaciones from '../../components/shared/PanelNotificaciones';
 
 const TABS = [
   { id:'dashboard',    label:'Dashboard',    icon: LayoutDashboard },
@@ -52,21 +53,21 @@ const CustomTooltip = ({ active, payload, label }) => {
 export default function AdminDashboard() {
   const { usuario, logout } = useAuth();
   const navigate = useNavigate();
-  const [vista, setVista]           = useState('dashboard');
-  const [data, setData]             = useState(null);
-  const [usuarios, setUsuarios]     = useState([]);
+  const [vista,             setVista]             = useState('dashboard');
+  const [data,              setData]              = useState(null);
+  const [usuarios,          setUsuarios]          = useState([]);
   const [usuariosFiltrados, setUsuariosFiltrados] = useState([]);
-  const [cosechas, setCosechas]     = useState([]);
-  const [cafeterias, setCafeterias] = useState([]);
-  const [estadisticas, setEstadisticas] = useState(null);
-  const [cargando, setCargando]     = useState(true);
-  const [asignando, setAsignando]   = useState(null);
-  const [modalUsuario, setModalUsuario] = useState(null);
-  const [nuevoRol, setNuevoRol]     = useState('');
-  const [guardando, setGuardando]   = useState(false);
-  const [toast, setToast]           = useState(null);
-  const [busqueda, setBusqueda]     = useState('');
-  const [filtroRol, setFiltroRol]   = useState('todos');
+  const [cosechas,          setCosechas]          = useState([]);
+  const [cafeterias,        setCafeterias]        = useState([]);
+  const [estadisticas,      setEstadisticas]      = useState(null);
+  const [cargando,          setCargando]          = useState(true);
+  const [asignando,         setAsignando]         = useState(null);
+  const [modalUsuario,      setModalUsuario]      = useState(null);
+  const [nuevoRol,          setNuevoRol]          = useState('');
+  const [guardando,         setGuardando]         = useState(false);
+  const [toast,             setToast]             = useState(null);
+  const [busqueda,          setBusqueda]          = useState('');
+  const [filtroRol,         setFiltroRol]         = useState('todos');
 
   useEffect(() => { cargarDatos(); }, []);
 
@@ -158,7 +159,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // Datos para gráficas
   const datosRoles = data?.usuarios_por_rol?.map(r => ({
     name: r.rol.charAt(0).toUpperCase() + r.rol.slice(1),
     value: parseInt(r.total)
@@ -178,31 +178,45 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen" style={{ background:'#F0F2F5' }}>
 
-      {/* ── NAVBAR ─────────────────────────────────── */}
-      <nav style={{ background:'#1A202C', borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+      {/* ── NAVBAR DESKTOP ── solo md+ */}
+      <nav className="hidden md:block sticky top-0 z-20"
+        style={{ background:'#1A202C', borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-14">
+
+            {/* Logo */}
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-                style={{ background:'rgba(255,255,255,0.08)' }}>
-                <Coffee size={15} color="#94A3B8" />
-              </div>
+              <img src="/logo.png" alt="logo" className="w-8 h-8 object-contain rounded-lg" />
               <div>
-                <span className="font-serif text-white text-sm font-semibold">
-                  Calm and Coffee
-                </span>
+                <span className="font-serif text-white text-sm font-semibold">Calm and Coffee</span>
                 <span className="text-xs ml-2" style={{ color:'#4A5568' }}>· Admin</span>
               </div>
             </div>
+
+            {/* Tabs */}
+            <div className="flex items-center gap-1">
+              {TABS.map(t => (
+                <button key={t.id} onClick={() => setVista(t.id)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition"
+                  style={{
+                    background: vista===t.id ? 'rgba(255,255,255,0.1)' : 'transparent',
+                    color:      vista===t.id ? 'white' : '#4A5568',
+                  }}>
+                  <t.icon size={13} />
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Acciones */}
             <div className="flex items-center gap-2">
-              <button onClick={cargarDatos}
-                className="p-2 rounded-lg transition"
-                style={{ color:'#4A5568' }}>
+              <button onClick={cargarDatos} className="p-2 rounded-lg" style={{ color:'#4A5568' }}>
                 <RefreshCw size={14} />
               </button>
               <span className="text-sm hidden sm:block" style={{ color:'#4A5568' }}>
                 {usuario?.nombre?.split(' ')[0]}
               </span>
+              <PanelNotificaciones colorAccent="#2D3748" />
               <button onClick={() => { logout(); navigate('/login'); }}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs"
                 style={{ background:'rgba(255,255,255,0.06)', color:'#94A3B8' }}>
@@ -211,45 +225,47 @@ export default function AdminDashboard() {
               </button>
             </div>
           </div>
-
-          <div className="flex gap-0 overflow-x-auto" style={{ scrollbarWidth:'none' }}>
-            {TABS.map(t => (
-              <button key={t.id}
-                onClick={() => setVista(t.id)}
-                className="flex items-center gap-2 px-4 py-3 text-xs font-medium whitespace-nowrap flex-shrink-0"
-                style={{
-                  color:        vista === t.id ? 'white'   : '#4A5568',
-                  borderBottom: vista === t.id ? '2px solid #94A3B8' : '2px solid transparent',
-                  background:   'transparent',
-                }}>
-                <t.icon size={13} />
-                {t.label}
-              </button>
-            ))}
-          </div>
         </div>
       </nav>
 
-      {/* ── TOAST ──────────────────────────────────── */}
+      {/* ── TOPBAR MÓVIL ── */}
+      <div className="md:hidden sticky top-0 z-20 flex items-center justify-between px-4 h-12"
+        style={{ background:'#1A202C', borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+        <div className="flex items-center gap-2">
+          <img src="/logo.png" alt="logo" className="w-8 h-8 object-contain rounded-lg" />
+          <div>
+            <p className="font-serif text-white text-sm font-semibold leading-none">Calm and Coffee</p>
+            <p className="text-xs" style={{ color:'#4A5568' }}>Admin</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={cargarDatos} className="p-1.5 rounded-lg" style={{ color:'#4A5568' }}>
+            <RefreshCw size={13} />
+          </button>
+          <PanelNotificaciones colorAccent="#2D3748" />
+        </div>
+      </div>
+
+      {/* ── TOAST ── */}
       {toast && (
-        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-medium animate-fade-in"
+        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-medium"
           style={{
-            background: toast.tipo === 'ok' ? '#EDFAF4' : '#FEF2F2',
-            border: `1px solid ${toast.tipo === 'ok' ? '#A8E8CC' : '#FECACA'}`,
-            color: toast.tipo === 'ok' ? '#1D7A4E' : '#DC2626',
-            boxShadow: '0 8px 30px rgba(0,0,0,0.12)'
+            background: toast.tipo==='ok' ? '#EDFAF4' : '#FEF2F2',
+            border: `1px solid ${toast.tipo==='ok' ? '#A8E8CC' : '#FECACA'}`,
+            color: toast.tipo==='ok' ? '#1D7A4E' : '#DC2626',
+            boxShadow:'0 8px 30px rgba(0,0,0,0.12)'
           }}>
-          {toast.tipo === 'ok' ? <CheckCircle size={15} /> : <AlertCircle size={15} />}
+          {toast.tipo==='ok' ? <CheckCircle size={15}/> : <AlertCircle size={15}/>}
           {toast.msg}
         </div>
       )}
 
-      {/* ── MODAL ROL ──────────────────────────────── */}
+      {/* ── MODAL ROL ── */}
       {modalUsuario && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-4"
           style={{ background:'rgba(0,0,0,0.6)' }}
           onClick={e => { if(e.target===e.currentTarget){ setModalUsuario(null); setNuevoRol(''); }}}>
-          <div className="w-full max-w-sm rounded-3xl p-6 animate-slide-up"
+          <div className="w-full max-w-sm rounded-3xl p-6"
             style={{ background:'white', boxShadow:'0 25px 60px rgba(0,0,0,0.2)' }}>
             <div className="flex items-center gap-3 mb-5">
               <div className="w-10 h-10 rounded-xl flex items-center justify-center font-serif font-bold"
@@ -296,20 +312,18 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* ── CONTENIDO ──────────────────────────────── */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-7">
+      {/* ── CONTENIDO ── */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-7 pb-32 md:pb-7">
         {cargando ? <Spinner /> : (
           <>
 
-            {/* ═══════════ DASHBOARD ═══════════════════ */}
+            {/* DASHBOARD */}
             {vista === 'dashboard' && data && (
               <div className="space-y-6">
-
-                {/* Hero */}
                 <div className="rounded-3xl p-6 sm:p-8 relative overflow-hidden"
                   style={{ background:'linear-gradient(135deg, #1A202C 0%, #2D3748 100%)' }}>
                   <div className="absolute top-0 right-0 w-64 h-64 rounded-full opacity-5"
-                    style={{ background:'white', transform:'translate(30%, -30%)' }} />
+                    style={{ background:'white', transform:'translate(30%,-30%)' }} />
                   <p className="text-xs font-medium mb-1 tracking-widest" style={{ color:'#4A5568' }}>
                     PANEL DE ADMINISTRACIÓN
                   </p>
@@ -317,17 +331,16 @@ export default function AdminDashboard() {
                     Calm and Coffee
                   </h1>
                   <p style={{ color:'#4A5568', fontSize:'13px' }}>
-                    Plataforma activa · {data.usuarios?.usuarios_activos || 0} usuarios · {cafeterias.length} cafeterías
+                    Plataforma activa · {data.usuarios?.usuarios_activos||0} usuarios · {cafeterias.length} cafeterías
                   </p>
                 </div>
 
-                {/* Métricas */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
-                    { icon:Users,       label:'Usuarios activos',  value: data.usuarios?.usuarios_activos   || 0,  color:'#2D3748', bg:'#F1F0EE', sub:`de ${data.usuarios?.total_usuarios||0} totales` },
-                    { icon:Building2,   label:'Cafeterías',        value: cafeterias.length || 0,                  color:'#1B4F8A', bg:'#EBF2FF', sub:'activas en la plataforma' },
-                    { icon:ShoppingBag, label:'Total pedidos',     value: data.pedidos?.total_pedidos       || 0,  color:'#1D7A4E', bg:'#EDFAF4', sub:'registrados' },
-                    { icon:Star,        label:'Satisfacción',      value: data.pedidos?.satisfaccion_global || '—', color:'#8A6200', bg:'#FFF8E1', sub:'promedio general ★' },
+                    { icon:Users,       label:'Usuarios activos',  value: data.usuarios?.usuarios_activos    || 0,   color:'#2D3748', bg:'#F1F0EE', sub:`de ${data.usuarios?.total_usuarios||0} totales` },
+                    { icon:Building2,   label:'Cafeterías',        value: cafeterias.length                  || 0,   color:'#1B4F8A', bg:'#EBF2FF', sub:'activas en la plataforma' },
+                    { icon:ShoppingBag, label:'Total pedidos',     value: data.pedidos?.total_pedidos        || 0,   color:'#1D7A4E', bg:'#EDFAF4', sub:'registrados' },
+                    { icon:Star,        label:'Satisfacción',      value: data.pedidos?.satisfaccion_global  || '—', color:'#8A6200', bg:'#FFF8E1', sub:'promedio general ★' },
                   ].map((m,i) => (
                     <div key={i} className="rounded-2xl p-5"
                       style={{ background:'white', border:'1px solid #E2E8F0', boxShadow:'0 1px 8px rgba(0,0,0,0.04)' }}>
@@ -335,19 +348,14 @@ export default function AdminDashboard() {
                         style={{ background:m.bg }}>
                         <m.icon size={16} color={m.color} />
                       </div>
-                      <p className="font-serif text-3xl font-bold mb-0.5" style={{ color:m.color }}>
-                        {m.value}
-                      </p>
+                      <p className="font-serif text-3xl font-bold mb-0.5" style={{ color:m.color }}>{m.value}</p>
                       <p className="text-xs font-medium text-stone-600">{m.label}</p>
                       <p className="text-xs mt-0.5" style={{ color:'#CBD5E0' }}>{m.sub}</p>
                     </div>
                   ))}
                 </div>
 
-                {/* Gráficas */}
                 <div className="grid md:grid-cols-2 gap-5">
-
-                  {/* Distribución por rol — PieChart */}
                   <div className="rounded-2xl p-5"
                     style={{ background:'white', border:'1px solid #E2E8F0' }}>
                     <div className="flex items-center gap-2 mb-4">
@@ -360,7 +368,7 @@ export default function AdminDashboard() {
                           <Pie data={datosRoles} cx="50%" cy="50%"
                             innerRadius={45} outerRadius={70}
                             paddingAngle={3} dataKey="value">
-                            {datosRoles.map((_, i) => (
+                            {datosRoles.map((_,i) => (
                               <Cell key={i} fill={ROL_COLORS[i % ROL_COLORS.length]} />
                             ))}
                           </Pie>
@@ -382,7 +390,6 @@ export default function AdminDashboard() {
                     </div>
                   </div>
 
-                  {/* Estado cosechas — BarChart */}
                   <div className="rounded-2xl p-5"
                     style={{ background:'white', border:'1px solid #E2E8F0' }}>
                     <div className="flex items-center gap-2 mb-4">
@@ -395,7 +402,7 @@ export default function AdminDashboard() {
                         <YAxis tick={{ fontSize:11, fill:'#94A3B8' }} axisLine={false} tickLine={false} />
                         <Tooltip content={<CustomTooltip />} />
                         <Bar dataKey="total" radius={[8,8,0,0]}>
-                          {datosCosechas.map((entry, i) => (
+                          {datosCosechas.map((entry,i) => (
                             <Cell key={i}
                               fill={entry.name==='Cerrada'?'#1D7A4E':entry.name==='Activa'?'#D4A847':'#1B4F8A'} />
                           ))}
@@ -405,7 +412,6 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                {/* Resumen financiero */}
                 <div className="rounded-2xl p-5"
                   style={{ background:'white', border:'1px solid #E2E8F0' }}>
                   <div className="flex items-center gap-2 mb-4">
@@ -415,11 +421,10 @@ export default function AdminDashboard() {
                   <div className="grid grid-cols-3 gap-4">
                     {[
                       { label:'Ingresos totales', value:`$${parseInt(data.pedidos?.ingresos_totales||0).toLocaleString('es-CO')}`, color:'#1D7A4E', bg:'#EDFAF4' },
-                      { label:'Clientes únicos',  value: data.pedidos?.clientes_unicos || '—',                                    color:'#1B4F8A', bg:'#EBF2FF' },
+                      { label:'Clientes únicos',  value: data.pedidos?.clientes_unicos || '—', color:'#1B4F8A', bg:'#EBF2FF' },
                       { label:'Satisfacción',     value: data.pedidos?.satisfaccion_global ? `${data.pedidos.satisfaccion_global}/5` : '—', color:'#8A6200', bg:'#FFF8E1' },
                     ].map((r,i) => (
-                      <div key={i} className="rounded-xl p-4 text-center"
-                        style={{ background:r.bg }}>
+                      <div key={i} className="rounded-xl p-4 text-center" style={{ background:r.bg }}>
                         <p className="font-serif text-2xl font-bold" style={{ color:r.color }}>{r.value}</p>
                         <p className="text-xs text-stone-500 mt-1">{r.label}</p>
                       </div>
@@ -429,36 +434,27 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            {/* ═══════════ USUARIOS ════════════════════ */}
+            {/* USUARIOS */}
             {vista === 'usuarios' && (
               <div className="space-y-4">
-                <div className="flex items-start justify-between gap-4 flex-wrap">
-                  <div>
-                    <h1 className="font-serif text-2xl font-bold text-stone-800">Usuarios</h1>
-                    <p className="text-stone-400 text-sm mt-0.5">
-                      {usuariosFiltrados.length} de {usuarios.length} usuarios
-                    </p>
-                  </div>
+                <div>
+                  <h1 className="font-serif text-2xl font-bold text-stone-800">Usuarios</h1>
+                  <p className="text-stone-400 text-sm mt-0.5">
+                    {usuariosFiltrados.length} de {usuarios.length} usuarios
+                  </p>
                 </div>
-
-                {/* Buscador y filtros */}
                 <div className="flex gap-3 flex-wrap">
                   <div className="flex items-center gap-2 flex-1 px-4 py-2.5 rounded-2xl min-w-48"
                     style={{ background:'white', border:'1px solid #E2E8F0' }}>
                     <Search size={14} color="#94A3B8" />
-                    <input
-                      value={busqueda}
-                      onChange={e => setBusqueda(e.target.value)}
+                    <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
                       placeholder="Buscar por nombre o email..."
-                      className="flex-1 text-sm outline-none bg-transparent text-stone-700 placeholder-stone-300"
-                    />
+                      className="flex-1 text-sm outline-none bg-transparent text-stone-700 placeholder-stone-300" />
                   </div>
                   <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl"
                     style={{ background:'white', border:'1px solid #E2E8F0' }}>
                     <Filter size={13} color="#94A3B8" />
-                    <select
-                      value={filtroRol}
-                      onChange={e => setFiltroRol(e.target.value)}
+                    <select value={filtroRol} onChange={e => setFiltroRol(e.target.value)}
                       className="text-sm outline-none bg-transparent text-stone-600">
                       <option value="todos">Todos los roles</option>
                       {['admin','gerente','caficultor','barista','cliente','catador'].map(r => (
@@ -467,8 +463,6 @@ export default function AdminDashboard() {
                     </select>
                   </div>
                 </div>
-
-                {/* Lista */}
                 <div className="space-y-2">
                   {usuariosFiltrados.length === 0 ? (
                     <div className="rounded-2xl p-10 text-center"
@@ -477,8 +471,7 @@ export default function AdminDashboard() {
                       <p className="text-stone-400 text-sm">No se encontraron usuarios</p>
                     </div>
                   ) : usuariosFiltrados.map((u,i) => (
-                    <div key={i}
-                      className="rounded-2xl p-4 flex items-center gap-4 transition"
+                    <div key={i} className="rounded-2xl p-4 flex items-center gap-4"
                       style={{ background:'white', border:'1px solid #E2E8F0' }}>
                       <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-serif font-bold"
                         style={{ background:'#F1F0EE', color:'#2D3748' }}>
@@ -489,9 +482,7 @@ export default function AdminDashboard() {
                           <p className="font-semibold text-stone-800 text-sm">{u.nombre}</p>
                           {!u.activo && (
                             <span className="text-xs px-2 py-0.5 rounded-full"
-                              style={{ background:'#FEF2F2', color:'#DC2626' }}>
-                              Inactivo
-                            </span>
+                              style={{ background:'#FEF2F2', color:'#DC2626' }}>Inactivo</span>
                           )}
                         </div>
                         <p className="text-stone-400 text-xs truncate">{u.email}</p>
@@ -515,7 +506,7 @@ export default function AdminDashboard() {
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
                         <button onClick={() => { setModalUsuario(u); setNuevoRol(''); }}
-                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition"
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium"
                           style={{ background:'#F8F9FA', color:'#4A5568', border:'1px solid #E2E8F0' }}>
                           <Shield size={11} />
                           <span className="hidden sm:inline">Rol</span>
@@ -536,14 +527,12 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            {/* ═══════════ CAFETERÍAS ══════════════════ */}
+            {/* CAFETERÍAS */}
             {vista === 'cafeterias' && (
               <div className="space-y-5">
                 <div>
                   <h1 className="font-serif text-2xl font-bold text-stone-800">Cafeterías</h1>
-                  <p className="text-stone-400 text-sm mt-0.5">
-                    {cafeterias.length} registradas en la plataforma
-                  </p>
+                  <p className="text-stone-400 text-sm mt-0.5">{cafeterias.length} registradas</p>
                 </div>
                 {cafeterias.length === 0 ? (
                   <div className="rounded-2xl p-12 text-center"
@@ -557,7 +546,7 @@ export default function AdminDashboard() {
                       <div key={i} className="rounded-2xl p-5"
                         style={{ background:'white', border:'1px solid #E2E8F0' }}>
                         <div className="flex items-start justify-between mb-3">
-                          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                          <div className="w-10 h-10 rounded-xl flex items-center justify-center"
                             style={{ background:'#EBF2FF' }}>
                             <Building2 size={18} color="#1B4F8A" />
                           </div>
@@ -580,7 +569,7 @@ export default function AdminDashboard() {
                           style={{ borderTop:'1px solid #F8F9FA' }}>
                           <span className="text-xs px-2.5 py-1 rounded-full"
                             style={{ background:'#EBF2FF', color:'#1B4F8A' }}>
-                            {c.cosechas_activas || 0} cafés activos
+                            {c.cosechas_activas||0} cafés activos
                           </span>
                           {c.rating && (
                             <span className="text-xs font-medium" style={{ color:'#D4A847' }}>
@@ -595,16 +584,12 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            {/* ═══════════ COSECHAS ════════════════════ */}
+            {/* COSECHAS */}
             {vista === 'cosechas' && (
               <div className="space-y-5">
                 <div>
-                  <h1 className="font-serif text-2xl font-bold text-stone-800">
-                    Cosechas sin asignar
-                  </h1>
-                  <p className="text-stone-400 text-sm mt-0.5">
-                    {cosechas.length} esperando cafetería
-                  </p>
+                  <h1 className="font-serif text-2xl font-bold text-stone-800">Cosechas sin asignar</h1>
+                  <p className="text-stone-400 text-sm mt-0.5">{cosechas.length} esperando cafetería</p>
                 </div>
                 {cosechas.length === 0 ? (
                   <div className="rounded-2xl p-12 text-center"
@@ -638,12 +623,11 @@ export default function AdminDashboard() {
                               </p>
                             )}
                           </div>
-                          <button
-                            onClick={() => asignarCosecha(c.id)}
-                            disabled={asignando === c.id}
+                          <button onClick={() => asignarCosecha(c.id)}
+                            disabled={asignando===c.id}
                             className="px-4 py-2.5 rounded-xl text-xs font-medium text-white flex-shrink-0"
-                            style={{ background: asignando === c.id ? '#CBD5E0' : '#1A202C' }}>
-                            {asignando === c.id ? 'Asignando...' : 'Asignar →'}
+                            style={{ background: asignando===c.id ? '#CBD5E0' : '#1A202C' }}>
+                            {asignando===c.id ? 'Asignando...' : 'Asignar →'}
                           </button>
                         </div>
                       </div>
@@ -653,16 +637,14 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            {/* ═══════════ ESTADÍSTICAS ════════════════ */}
+            {/* ESTADÍSTICAS */}
             {vista === 'estadisticas' && estadisticas && (
               <div className="space-y-6">
                 <div>
                   <h1 className="font-serif text-2xl font-bold text-stone-800">Estadísticas</h1>
                   <p className="text-stone-400 text-sm mt-0.5">Rendimiento global de la plataforma</p>
                 </div>
-
                 <div className="grid md:grid-cols-2 gap-5">
-                  {/* Top cafés */}
                   <div className="rounded-2xl p-5"
                     style={{ background:'white', border:'1px solid #E2E8F0' }}>
                     <div className="flex items-center gap-2 mb-5">
@@ -689,13 +671,11 @@ export default function AdminDashboard() {
                           {estadisticas.top_cafes.map((c,i) => (
                             <div key={i} className="flex items-center gap-3">
                               <span className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0"
-                                style={{ background: i===0?'#FFF8E1':'#F8F9FA', color: i===0?'#8A6200':'#4A5568' }}>
+                                style={{ background:i===0?'#FFF8E1':'#F8F9FA', color:i===0?'#8A6200':'#4A5568' }}>
                                 {i+1}
                               </span>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-stone-700 text-xs font-medium truncate">{c.nombre}</p>
-                              </div>
-                              <div className="text-right flex-shrink-0">
+                              <p className="flex-1 text-stone-700 text-xs font-medium truncate">{c.nombre}</p>
+                              <div className="text-right">
                                 {c.rating && <p className="text-xs font-medium" style={{ color:'#D4A847' }}>★ {c.rating}</p>}
                                 <p className="text-xs text-stone-400">{c.pedidos} pedidos</p>
                               </div>
@@ -711,7 +691,6 @@ export default function AdminDashboard() {
                     )}
                   </div>
 
-                  {/* Top fincas */}
                   <div className="rounded-2xl p-5"
                     style={{ background:'white', border:'1px solid #E2E8F0' }}>
                     <div className="flex items-center gap-2 mb-5">
@@ -738,14 +717,14 @@ export default function AdminDashboard() {
                           {estadisticas.top_fincas.map((f,i) => (
                             <div key={i} className="flex items-center gap-3">
                               <span className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0"
-                                style={{ background: i===0?'#F3EEF5':'#F8F9FA', color: i===0?'#6B3A8A':'#4A5568' }}>
+                                style={{ background:i===0?'#F3EEF5':'#F8F9FA', color:i===0?'#6B3A8A':'#4A5568' }}>
                                 {i+1}
                               </span>
                               <div className="flex-1 min-w-0">
                                 <p className="text-stone-700 text-xs font-medium truncate">{f.nombre}</p>
                                 <p className="text-stone-400 text-xs truncate">{f.caficultor} · {f.municipio}</p>
                               </div>
-                              <div className="text-right flex-shrink-0">
+                              <div className="text-right">
                                 {f.rating_promedio && <p className="text-xs font-medium" style={{ color:'#D4A847' }}>★ {f.rating_promedio}</p>}
                                 <p className="text-xs text-stone-400">{f.cosechas} cosechas</p>
                               </div>
@@ -767,6 +746,37 @@ export default function AdminDashboard() {
           </>
         )}
       </div>
+
+      {/* ── NAVBAR BOTTOM MÓVIL ── */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 px-4 pb-4">
+        <div className="rounded-3xl px-2 py-2"
+          style={{
+            background:'rgba(26,32,44,0.97)',
+            backdropFilter:'blur(20px)',
+            boxShadow:'0 -4px 32px rgba(0,0,0,0.3)',
+            border:'1px solid rgba(255,255,255,0.08)'
+          }}>
+          <div className="flex items-center justify-around">
+            {TABS.map(t => {
+              const activo = vista === t.id;
+              return (
+                <button key={t.id} onClick={() => setVista(t.id)}
+                  className="flex flex-col items-center gap-1 px-2 py-2 rounded-2xl transition-all"
+                  style={{
+                    background: activo ? 'rgba(255,255,255,0.15)' : 'transparent',
+                    minWidth:'52px'
+                  }}>
+                  <t.icon size={activo?20:17} color={activo?'white':'#4A5568'} />
+                  <span style={{ fontSize:'9px', color:activo?'white':'#4A5568', fontWeight:600 }}>
+                    {t.label.length > 7 ? t.label.slice(0,6)+'.' : t.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
     </div>
   );
 }

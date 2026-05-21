@@ -9,9 +9,6 @@ import ClienteCata      from './pages/cliente/Cata';
 import ClientePedido    from './pages/cliente/Pedido';
 import ClienteDashboard from './pages/cliente/Dashboard';
 import ClienteQR        from './pages/cliente/Trazabilidad';
-import ClientePasaporte from './pages/cliente/Pasaporte';
-import ClienteHistorial from './pages/cliente/Historial';
-import ClienteExplorar  from './pages/cliente/Explorar';
 
 import CaficultorDashboard from './pages/caficultor/Dashboard';
 
@@ -34,18 +31,18 @@ function App() {
           <Route path="/trazabilidad/:qr" element={<ClienteQR />} />
           <Route path="/" element={<Navigate to="/login" replace />} />
 
-          {/* Cliente */}
-          <Route path="/cliente"                          element={<RutaProtegida rol="cliente"><ClienteDashboard /></RutaProtegida>} />
-          <Route path="/cliente/pasaporte"                element={<RutaProtegida rol="cliente"><ClientePasaporte /></RutaProtegida>} />
-          <Route path="/cliente/historial"                element={<RutaProtegida rol="cliente"><ClienteHistorial /></RutaProtegida>} />
-          <Route path="/cliente/explorar"                 element={<RutaProtegida rol="cliente"><ClienteExplorar /></RutaProtegida>} />
+          {/* Cliente — todo en Dashboard con tabs */}
+          <Route path="/cliente"                               element={<RutaProtegida rol="cliente"><ClienteDashboard /></RutaProtegida>} />
+          <Route path="/cliente/explorar"                      element={<RutaProtegida rol="cliente"><ClienteDashboard /></RutaProtegida>} />
+          <Route path="/cliente/historial"                     element={<RutaProtegida rol="cliente"><ClienteDashboard /></RutaProtegida>} />
+          <Route path="/cliente/pasaporte"                     element={<RutaProtegida rol="cliente"><ClienteDashboard /></RutaProtegida>} />
           <Route path="/cliente/pedido/:cafeteria_id/:item_id" element={<RutaProtegida rol="cliente"><ClientePedido /></RutaProtegida>} />
-          <Route path="/cliente/pedidos/:pedido_id/cata"  element={<RutaProtegida rol="cliente"><ClienteCata /></RutaProtegida>} />
+          <Route path="/cliente/pedidos/:pedido_id/cata"       element={<RutaProtegida rol="cliente"><ClienteCata /></RutaProtegida>} />
 
-          {/* Caficultor — todo en un solo Dashboard con tabs */}
-          <Route path="/caficultor"           element={<RutaProtegida rol="caficultor"><CaficultorDashboard /></RutaProtegida>} />
-          <Route path="/caficultor/fincas"    element={<RutaProtegida rol="caficultor"><CaficultorDashboard /></RutaProtegida>} />
-          <Route path="/caficultor/cosechas"  element={<RutaProtegida rol="caficultor"><CaficultorDashboard /></RutaProtegida>} />
+          {/* Caficultor — todo en Dashboard con tabs */}
+          <Route path="/caficultor"              element={<RutaProtegida rol="caficultor"><CaficultorDashboard /></RutaProtegida>} />
+          <Route path="/caficultor/fincas"       element={<RutaProtegida rol="caficultor"><CaficultorDashboard /></RutaProtegida>} />
+          <Route path="/caficultor/cosechas"     element={<RutaProtegida rol="caficultor"><CaficultorDashboard /></RutaProtegida>} />
           <Route path="/caficultor/cosechas/:id" element={<RutaProtegida rol="caficultor"><CaficultorDashboard /></RutaProtegida>} />
 
           {/* Otros roles */}
