@@ -4,7 +4,6 @@ const pool = require('../../config/db');
 const getUsuarios = async (req, res) => {
   try {
     const { rol, activo } = req.query;
-
     let query = `
       SELECT u.id, u.nombre, u.email, u.municipio,
              u.telefono, u.activo, u.creado_en,
@@ -15,21 +14,16 @@ const getUsuarios = async (req, res) => {
       LEFT JOIN roles r          ON r.id = ur.rol_id
       WHERE 1=1
     `;
-
     const params = [];
-
     if (rol) {
       params.push(rol);
       query += ` AND r.nombre = $${params.length}`;
     }
-
     if (activo !== undefined) {
       params.push(activo === 'true');
       query += ` AND u.activo = $${params.length}`;
     }
-
     query += ' GROUP BY u.id ORDER BY u.creado_en DESC';
-
     const result = await pool.query(query, params);
     res.json({ usuarios: result.rows, total: result.rows.length });
   } catch (err) {
@@ -50,11 +44,9 @@ const getUsuario = async (req, res) => {
        GROUP BY u.id`,
       [req.params.id]
     );
-
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
-
     res.json({ usuario: result.rows[0] });
   } catch (err) {
     console.error(err);
@@ -65,30 +57,29 @@ const getUsuario = async (req, res) => {
 // ── POST /api/admin/usuarios/:id/roles ───────────────────────
 const asignarRol = async (req, res) => {
   const { rol_nombre } = req.body;
-
   if (!rol_nombre) {
     return res.status(400).json({ error: 'rol_nombre es obligatorio' });
   }
-
   try {
     const rol = await pool.query(
       'SELECT id FROM roles WHERE nombre = $1',
       [rol_nombre]
     );
-
     if (rol.rows.length === 0) {
       return res.status(404).json({ error: `Rol '${rol_nombre}' no existe` });
     }
-
+    // 1. Eliminar TODOS los roles anteriores del usuario
+    await pool.query(
+      'DELETE FROM usuario_roles WHERE usuario_id = $1',
+      [req.params.id]
+    );
+    // 2. Insertar el nuevo rol único
     await pool.query(
       `INSERT INTO usuario_roles (usuario_id, rol_id, asignado_por)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (usuario_id, rol_id)
-       DO UPDATE SET activo = true, asignado_por = $3`,
+       VALUES ($1, $2, $3)`,
       [req.params.id, rol.rows[0].id, req.usuario.id]
     );
-
-    res.json({ message: `Rol '${rol_nombre}' asignado exitosamente` });
+    res.json({ message: `Rol actualizado a '${rol_nombre}' exitosamente` });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error al asignar rol' });
@@ -100,7 +91,6 @@ const desactivarUsuario = async (req, res) => {
   if (req.params.id === req.usuario.id) {
     return res.status(400).json({ error: 'No puedes desactivarte a ti mismo' });
   }
-
   try {
     const result = await pool.query(
       `UPDATE usuarios SET activo = false
@@ -108,11 +98,9 @@ const desactivarUsuario = async (req, res) => {
        RETURNING id, nombre, email, activo`,
       [req.params.id]
     );
-
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
-
     res.json({ message: 'Usuario desactivado exitosamente', usuario: result.rows[0] });
   } catch (err) {
     console.error(err);
@@ -140,7 +128,6 @@ const getCosechasSinAsignar = async (req, res) => {
          )
        ORDER BY c.fecha_cierre DESC`
     );
-
     res.json({ cosechas: result.rows, total: result.rows.length });
   } catch (err) {
     console.error(err);
@@ -151,11 +138,9 @@ const getCosechasSinAsignar = async (req, res) => {
 // ── POST /api/admin/cosechas/:cosecha_id/asignar ─────────────
 const asignarCosechaACafeteria = async (req, res) => {
   const { cafeteria_id } = req.body;
-
   if (!cafeteria_id) {
     return res.status(400).json({ error: 'cafeteria_id es obligatorio' });
   }
-
   try {
     const cosecha = await pool.query(
       `SELECT c.id, c.variedad, f.nombre AS nombre_finca
@@ -164,20 +149,16 @@ const asignarCosechaACafeteria = async (req, res) => {
        WHERE c.id = $1 AND c.estado = 'cerrada'`,
       [req.params.cosecha_id]
     );
-
     if (cosecha.rows.length === 0) {
       return res.status(404).json({ error: 'Cosecha no encontrada o no está cerrada' });
     }
-
     const cafeteria = await pool.query(
       'SELECT id, nombre FROM cafeterias WHERE id = $1 AND activa = true',
       [cafeteria_id]
     );
-
     if (cafeteria.rows.length === 0) {
       return res.status(404).json({ error: 'Cafetería no encontrada' });
     }
-
     await pool.query(
       `INSERT INTO cosecha_cafeteria (cosecha_id, cafeteria_id, asignado_por)
        VALUES ($1, $2, $3)
@@ -185,12 +166,10 @@ const asignarCosechaACafeteria = async (req, res) => {
        DO UPDATE SET activa = true, asignado_por = $3`,
       [req.params.cosecha_id, cafeteria_id, req.usuario.id]
     );
-
     await pool.query(
       `UPDATE cosechas SET estado = 'asignada' WHERE id = $1`,
       [req.params.cosecha_id]
     );
-
     res.json({
       message: `Cosecha '${cosecha.rows[0].variedad}' asignada a '${cafeteria.rows[0].nombre}'`
     });
@@ -210,7 +189,6 @@ const getDashboard = async (req, res) => {
          COUNT(CASE WHEN activo = false THEN 1 END)  AS usuarios_inactivos
        FROM usuarios`
     );
-
     const porRol = await pool.query(
       `SELECT r.nombre AS rol, COUNT(ur.usuario_id) AS total
        FROM roles r
@@ -218,30 +196,27 @@ const getDashboard = async (req, res) => {
        GROUP BY r.id, r.nombre
        ORDER BY r.id`
     );
-
     const cosechas = await pool.query(
       `SELECT estado, COUNT(*) AS total
        FROM cosechas
        GROUP BY estado`
     );
-
     const cafeterias = await pool.query(
       `SELECT COUNT(*) AS total,
               COUNT(CASE WHEN activa = true THEN 1 END) AS activas
        FROM cafeterias`
     );
-
     const pedidos = await pool.query(
       `SELECT
          COUNT(*)                                              AS total_pedidos,
          COALESCE(SUM(pa.monto)
            FILTER (WHERE pa.estado = 'confirmado'), 0)        AS ingresos_totales,
-         ROUND(AVG(v.cafe_experiencia)::numeric, 1)           AS satisfaccion_global
+         ROUND(AVG(v.cafe_experiencia)::numeric, 1)           AS satisfaccion_global,
+         COUNT(DISTINCT p.cliente_id)                         AS clientes_unicos
        FROM pedidos p
        LEFT JOIN pagos pa       ON pa.pedido_id = p.id
        LEFT JOIN valoraciones v ON v.pedido_id  = p.id`
     );
-
     res.json({
       usuarios:         usuarios.rows[0],
       usuarios_por_rol: porRol.rows,
@@ -271,7 +246,6 @@ const getEstadisticas = async (req, res) => {
        ORDER BY pedidos DESC
        LIMIT 10`
     );
-
     const topFincas = await pool.query(
       `SELECT f.nombre, f.municipio,
               u.nombre AS caficultor,
@@ -287,7 +261,6 @@ const getEstadisticas = async (req, res) => {
        ORDER BY cosechas DESC
        LIMIT 5`
     );
-
     res.json({
       top_cafes:  topCafes.rows,
       top_fincas: topFincas.rows,
@@ -302,7 +275,6 @@ const getEstadisticas = async (req, res) => {
 const getPerfilCliente = async (req, res) => {
   try {
     const { id } = req.params;
-
     const [pasaporteRes, preferenciasRes] = await Promise.all([
       pool.query(
         `SELECT pc.puntos, pc.nivel, pc.cafes_catados,
@@ -321,7 +293,6 @@ const getPerfilCliente = async (req, res) => {
         [id]
       ),
     ]);
-
     res.json({
       pasaporte:    pasaporteRes.rows[0]    || null,
       preferencias: preferenciasRes.rows[0] || null,
