@@ -10,6 +10,7 @@ const {
   getDashboard,
   getEstadisticas,
   getPerfilCliente,
+  crearCafeteria,
 } = require('./admin.controller');
 
 router.use(verificarToken);
@@ -24,5 +25,5 @@ router.get('/cosechas/sin-asignar',            getCosechasSinAsignar);
 router.post('/cosechas/:cosecha_id/asignar',   asignarCosechaACafeteria);
 router.get('/dashboard',                       getDashboard);
 router.get('/estadisticas',                    getEstadisticas);
-
+router.post('/cafeterias', crearCafeteria);
 module.exports = router;
