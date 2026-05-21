@@ -7,7 +7,7 @@ import {
   ShoppingBag, Building2, CheckCircle,
   XCircle, Shield, RefreshCw,
   AlertCircle, ChevronRight, MapPin,
-  Activity, Award, Search, Filter
+  Activity, Award, Search, Filter, Plus
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -63,11 +63,17 @@ export default function AdminDashboard() {
   const [cargando,          setCargando]          = useState(true);
   const [asignando,         setAsignando]         = useState(null);
   const [modalUsuario,      setModalUsuario]      = useState(null);
+  const [modalCafeteria,    setModalCafeteria]    = useState(false);
   const [nuevoRol,          setNuevoRol]          = useState('');
   const [guardando,         setGuardando]         = useState(false);
   const [toast,             setToast]             = useState(null);
   const [busqueda,          setBusqueda]          = useState('');
   const [filtroRol,         setFiltroRol]         = useState('todos');
+
+  // Form nueva cafetería
+  const [formCafe, setFormCafe] = useState({
+    nombre:'', municipio:'', direccion:'', descripcion:'', gerente_id:''
+  });
 
   useEffect(() => { cargarDatos(); }, []);
 
@@ -159,6 +165,27 @@ export default function AdminDashboard() {
     }
   };
 
+  const crearCafeteria = async () => {
+    if (!formCafe.nombre || !formCafe.municipio || !formCafe.gerente_id) {
+      mostrarToast('Nombre, municipio y gerente son obligatorios', 'error');
+      return;
+    }
+    setGuardando(true);
+    try {
+      await api.post('/admin/cafeterias', formCafe);
+      mostrarToast(`Cafetería "${formCafe.nombre}" creada exitosamente`);
+      setModalCafeteria(false);
+      setFormCafe({ nombre:'', municipio:'', direccion:'', descripcion:'', gerente_id:'' });
+      cargarDatos();
+    } catch (err) {
+      mostrarToast(err.response?.data?.error || 'Error al crear cafetería', 'error');
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const gerentes = usuarios.filter(u => u.roles?.includes('gerente'));
+
   const datosRoles = data?.usuarios_por_rol?.map(r => ({
     name: r.rol.charAt(0).toUpperCase() + r.rol.slice(1),
     value: parseInt(r.total)
@@ -175,16 +202,20 @@ export default function AdminDashboard() {
     </div>
   );
 
+  const inputStyle = {
+    width:'100%', padding:'10px 14px', borderRadius:'12px',
+    border:'1px solid #E2E8F0', fontSize:'14px', outline:'none',
+    background:'#F8F9FA', color:'#1A202C'
+  };
+
   return (
     <div className="min-h-screen" style={{ background:'#F0F2F5' }}>
 
-      {/* ── NAVBAR DESKTOP ── solo md+ */}
+      {/* ── NAVBAR DESKTOP ── */}
       <nav className="hidden md:block sticky top-0 z-20"
         style={{ background:'#1A202C', borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-14">
-
-            {/* Logo */}
             <div className="flex items-center gap-3">
               <img src="/logo.png" alt="logo" className="w-8 h-8 object-contain rounded-lg" />
               <div>
@@ -192,8 +223,6 @@ export default function AdminDashboard() {
                 <span className="text-xs ml-2" style={{ color:'#4A5568' }}>· Admin</span>
               </div>
             </div>
-
-            {/* Tabs */}
             <div className="flex items-center gap-1">
               {TABS.map(t => (
                 <button key={t.id} onClick={() => setVista(t.id)}
@@ -207,8 +236,6 @@ export default function AdminDashboard() {
                 </button>
               ))}
             </div>
-
-            {/* Acciones */}
             <div className="flex items-center gap-2">
               <button onClick={cargarDatos} className="p-2 rounded-lg" style={{ color:'#4A5568' }}>
                 <RefreshCw size={14} />
@@ -312,6 +339,113 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {/* ── MODAL CREAR CAFETERÍA ── */}
+      {modalCafeteria && (
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-4"
+          style={{ background:'rgba(0,0,0,0.6)' }}
+          onClick={e => { if(e.target===e.currentTarget) setModalCafeteria(false); }}>
+          <div className="w-full max-w-md rounded-3xl p-6"
+            style={{ background:'white', boxShadow:'0 25px 60px rgba(0,0,0,0.2)' }}>
+
+            {/* Header */}
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                style={{ background:'#EBF2FF' }}>
+                <Building2 size={18} color="#1B4F8A" />
+              </div>
+              <div>
+                <h3 className="font-serif font-bold text-stone-800">Nueva cafetería</h3>
+                <p className="text-xs text-stone-400">Crea y asigna un gerente</p>
+              </div>
+            </div>
+
+            <div className="space-y-3 mb-5">
+              {/* Nombre */}
+              <div>
+                <p className="text-xs font-medium text-stone-500 mb-1">Nombre *</p>
+                <input
+                  value={formCafe.nombre}
+                  onChange={e => setFormCafe(f => ({...f, nombre: e.target.value}))}
+                  placeholder="Ej: Café del Bosque"
+                  style={inputStyle}
+                />
+              </div>
+
+              {/* Municipio */}
+              <div>
+                <p className="text-xs font-medium text-stone-500 mb-1">Municipio *</p>
+                <input
+                  value={formCafe.municipio}
+                  onChange={e => setFormCafe(f => ({...f, municipio: e.target.value}))}
+                  placeholder="Ej: Fusagasugá"
+                  style={inputStyle}
+                />
+              </div>
+
+              {/* Dirección */}
+              <div>
+                <p className="text-xs font-medium text-stone-500 mb-1">Dirección</p>
+                <input
+                  value={formCafe.direccion}
+                  onChange={e => setFormCafe(f => ({...f, direccion: e.target.value}))}
+                  placeholder="Ej: Calle 5 # 10-20"
+                  style={inputStyle}
+                />
+              </div>
+
+              {/* Descripción */}
+              <div>
+                <p className="text-xs font-medium text-stone-500 mb-1">Descripción</p>
+                <textarea
+                  value={formCafe.descripcion}
+                  onChange={e => setFormCafe(f => ({...f, descripcion: e.target.value}))}
+                  placeholder="Describe la cafetería..."
+                  rows={2}
+                  style={{...inputStyle, resize:'none'}}
+                />
+              </div>
+
+              {/* Gerente */}
+              <div>
+                <p className="text-xs font-medium text-stone-500 mb-1">Gerente *</p>
+                {gerentes.length === 0 ? (
+                  <div className="px-4 py-3 rounded-xl text-xs text-stone-400"
+                    style={{ background:'#FFF8E1', border:'1px solid #FFE082' }}>
+                    No hay usuarios con rol gerente. Asigna el rol gerente a un usuario primero.
+                  </div>
+                ) : (
+                  <select
+                    value={formCafe.gerente_id}
+                    onChange={e => setFormCafe(f => ({...f, gerente_id: e.target.value}))}
+                    style={inputStyle}>
+                    <option value="">Selecciona un gerente...</option>
+                    {gerentes.map(g => (
+                      <option key={g.id} value={g.id}>
+                        {g.nombre} — {g.email}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button onClick={() => setModalCafeteria(false)}
+                className="flex-1 py-3 rounded-2xl text-sm text-stone-400"
+                style={{ background:'#F8F9FA', border:'1px solid #E2E8F0' }}>
+                Cancelar
+              </button>
+              <button onClick={crearCafeteria}
+                disabled={guardando || !formCafe.nombre || !formCafe.municipio || !formCafe.gerente_id}
+                className="flex-1 py-3 rounded-2xl text-sm text-white font-medium"
+                style={{ background: (!formCafe.nombre || !formCafe.municipio || !formCafe.gerente_id) ? '#CBD5E0' : '#1B4F8A' }}>
+                {guardando ? 'Creando...' : 'Crear cafetería'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── CONTENIDO ── */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-7 pb-32 md:pb-7">
         {cargando ? <Spinner /> : (
@@ -356,8 +490,7 @@ export default function AdminDashboard() {
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-5">
-                  <div className="rounded-2xl p-5"
-                    style={{ background:'white', border:'1px solid #E2E8F0' }}>
+                  <div className="rounded-2xl p-5" style={{ background:'white', border:'1px solid #E2E8F0' }}>
                     <div className="flex items-center gap-2 mb-4">
                       <Users size={15} color="#4A5568" />
                       <h2 className="font-serif font-bold text-stone-800">Distribución por rol</h2>
@@ -366,8 +499,7 @@ export default function AdminDashboard() {
                       <ResponsiveContainer width="50%" height={160}>
                         <PieChart>
                           <Pie data={datosRoles} cx="50%" cy="50%"
-                            innerRadius={45} outerRadius={70}
-                            paddingAngle={3} dataKey="value">
+                            innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value">
                             {datosRoles.map((_,i) => (
                               <Cell key={i} fill={ROL_COLORS[i % ROL_COLORS.length]} />
                             ))}
@@ -390,8 +522,7 @@ export default function AdminDashboard() {
                     </div>
                   </div>
 
-                  <div className="rounded-2xl p-5"
-                    style={{ background:'white', border:'1px solid #E2E8F0' }}>
+                  <div className="rounded-2xl p-5" style={{ background:'white', border:'1px solid #E2E8F0' }}>
                     <div className="flex items-center gap-2 mb-4">
                       <Leaf size={15} color="#1D7A4E" />
                       <h2 className="font-serif font-bold text-stone-800">Estado cosechas</h2>
@@ -412,8 +543,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl p-5"
-                  style={{ background:'white', border:'1px solid #E2E8F0' }}>
+                <div className="rounded-2xl p-5" style={{ background:'white', border:'1px solid #E2E8F0' }}>
                   <div className="flex items-center gap-2 mb-4">
                     <Activity size={15} color="#1B4F8A" />
                     <h2 className="font-serif font-bold text-stone-800">Resumen financiero</h2>
@@ -530,55 +660,91 @@ export default function AdminDashboard() {
             {/* CAFETERÍAS */}
             {vista === 'cafeterias' && (
               <div className="space-y-5">
-                <div>
-                  <h1 className="font-serif text-2xl font-bold text-stone-800">Cafeterías</h1>
-                  <p className="text-stone-400 text-sm mt-0.5">{cafeterias.length} registradas</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h1 className="font-serif text-2xl font-bold text-stone-800">Cafeterías</h1>
+                    <p className="text-stone-400 text-sm mt-0.5">{cafeterias.length} registradas</p>
+                  </div>
+                  <button onClick={() => setModalCafeteria(true)}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold text-white"
+                    style={{ background:'#1B4F8A' }}>
+                    <Plus size={16} />
+                    Nueva cafetería
+                  </button>
                 </div>
+
+                {gerentes.length === 0 && (
+                  <div className="rounded-2xl p-4 flex items-center gap-3"
+                    style={{ background:'#FFF8E1', border:'1px solid #FFE082' }}>
+                    <AlertCircle size={16} color="#8A6200" />
+                    <p className="text-sm" style={{ color:'#8A6200' }}>
+                      Para crear una cafetería primero asigna el rol <strong>gerente</strong> a un usuario desde el tab Usuarios.
+                    </p>
+                  </div>
+                )}
+
                 {cafeterias.length === 0 ? (
                   <div className="rounded-2xl p-12 text-center"
                     style={{ background:'white', border:'1px solid #E2E8F0' }}>
                     <Building2 size={36} color="#E2E8F0" className="mx-auto mb-3" />
-                    <p className="font-serif text-stone-500 font-semibold">Sin cafeterías</p>
+                    <p className="font-serif text-stone-500 font-semibold mb-1">Sin cafeterías aún</p>
+                    <p className="text-stone-400 text-sm mb-4">Crea la primera cafetería del sistema</p>
+                    <button onClick={() => setModalCafeteria(true)}
+                      className="px-5 py-2.5 rounded-2xl text-sm font-bold text-white"
+                      style={{ background:'#1B4F8A' }}>
+                      Crear primera cafetería
+                    </button>
                   </div>
                 ) : (
                   <div className="grid sm:grid-cols-2 gap-4">
-                    {cafeterias.map((c,i) => (
-                      <div key={i} className="rounded-2xl p-5"
-                        style={{ background:'white', border:'1px solid #E2E8F0' }}>
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-                            style={{ background:'#EBF2FF' }}>
-                            <Building2 size={18} color="#1B4F8A" />
-                          </div>
-                          <span className="text-xs px-2.5 py-1 rounded-full font-medium"
-                            style={{ background:c.activa?'#EDFAF4':'#FEF2F2', color:c.activa?'#1D7A4E':'#DC2626' }}>
-                            {c.activa ? 'Activa' : 'Inactiva'}
-                          </span>
-                        </div>
-                        <h3 className="font-serif font-bold text-stone-800 mb-1">{c.nombre}</h3>
-                        <div className="flex items-center gap-1 mb-2">
-                          <MapPin size={11} color="#94A3B8" />
-                          <span className="text-xs text-stone-400">{c.municipio}</span>
-                        </div>
-                        {c.descripcion && (
-                          <p className="text-xs text-stone-400 leading-relaxed mb-3 line-clamp-2">
-                            {c.descripcion}
-                          </p>
-                        )}
-                        <div className="flex items-center justify-between pt-3"
-                          style={{ borderTop:'1px solid #F8F9FA' }}>
-                          <span className="text-xs px-2.5 py-1 rounded-full"
-                            style={{ background:'#EBF2FF', color:'#1B4F8A' }}>
-                            {c.cosechas_activas||0} cafés activos
-                          </span>
-                          {c.rating && (
-                            <span className="text-xs font-medium" style={{ color:'#D4A847' }}>
-                              ★ {c.rating}
+                    {cafeterias.map((c,i) => {
+                      const gerente = usuarios.find(u => u.id === c.gerente_id);
+                      return (
+                        <div key={i} className="rounded-2xl p-5"
+                          style={{ background:'white', border:'1px solid #E2E8F0' }}>
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                              style={{ background:'#EBF2FF' }}>
+                              <Building2 size={18} color="#1B4F8A" />
+                            </div>
+                            <span className="text-xs px-2.5 py-1 rounded-full font-medium"
+                              style={{ background:c.activa?'#EDFAF4':'#FEF2F2', color:c.activa?'#1D7A4E':'#DC2626' }}>
+                              {c.activa ? 'Activa' : 'Inactiva'}
                             </span>
+                          </div>
+                          <h3 className="font-serif font-bold text-stone-800 mb-1">{c.nombre}</h3>
+                          <div className="flex items-center gap-1 mb-1">
+                            <MapPin size={11} color="#94A3B8" />
+                            <span className="text-xs text-stone-400">{c.municipio}</span>
+                          </div>
+                          {gerente && (
+                            <div className="flex items-center gap-1 mb-2">
+                              <Shield size={11} color="#1B4F8A" />
+                              <span className="text-xs" style={{ color:'#1B4F8A' }}>
+                                {gerente.nombre}
+                              </span>
+                            </div>
                           )}
+                          {c.descripcion && (
+                            <p className="text-xs text-stone-400 leading-relaxed mb-3 line-clamp-2">
+                              {c.descripcion}
+                            </p>
+                          )}
+                          <div className="flex items-center justify-between pt-3"
+                            style={{ borderTop:'1px solid #F8F9FA' }}>
+                            <span className="text-xs px-2.5 py-1 rounded-full"
+                              style={{ background:'#EBF2FF', color:'#1B4F8A' }}>
+                              {c.cosechas_activas||0} cafés activos
+                            </span>
+                            {c.rating && (
+                              <span className="text-xs font-medium" style={{ color:'#D4A847' }}>
+                                ★ {c.rating}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -623,12 +789,26 @@ export default function AdminDashboard() {
                               </p>
                             )}
                           </div>
-                          <button onClick={() => asignarCosecha(c.id)}
-                            disabled={asignando===c.id}
-                            className="px-4 py-2.5 rounded-xl text-xs font-medium text-white flex-shrink-0"
-                            style={{ background: asignando===c.id ? '#CBD5E0' : '#1A202C' }}>
-                            {asignando===c.id ? 'Asignando...' : 'Asignar →'}
-                          </button>
+                          <div className="flex flex-col gap-2 flex-shrink-0">
+                            <select
+                              className="text-xs px-3 py-2 rounded-xl outline-none"
+                              style={{ background:'#F8F9FA', border:'1px solid #E2E8F0', color:'#4A5568' }}
+                              onChange={e => {
+                                if (e.target.value) {
+                                  api.post(`/admin/cosechas/${c.id}/asignar`, {
+                                    cafeteria_id: e.target.value
+                                  }).then(() => {
+                                    mostrarToast('Cosecha asignada');
+                                    cargarDatos();
+                                  }).catch(err => mostrarToast(err.response?.data?.error || 'Error', 'error'));
+                                }
+                              }}>
+                              <option value="">Seleccionar cafetería...</option>
+                              {cafeterias.map(cf => (
+                                <option key={cf.id} value={cf.id}>{cf.nombre}</option>
+                              ))}
+                            </select>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -645,11 +825,9 @@ export default function AdminDashboard() {
                   <p className="text-stone-400 text-sm mt-0.5">Rendimiento global de la plataforma</p>
                 </div>
                 <div className="grid md:grid-cols-2 gap-5">
-                  <div className="rounded-2xl p-5"
-                    style={{ background:'white', border:'1px solid #E2E8F0' }}>
+                  <div className="rounded-2xl p-5" style={{ background:'white', border:'1px solid #E2E8F0' }}>
                     <div className="flex items-center gap-2 mb-5">
-                      <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-                        style={{ background:'#EDFAF4' }}>
+                      <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background:'#EDFAF4' }}>
                         <TrendingUp size={15} color="#1D7A4E" />
                       </div>
                       <h2 className="font-serif font-bold text-stone-800">Top cafés pedidos</h2>
@@ -658,8 +836,7 @@ export default function AdminDashboard() {
                       <>
                         <ResponsiveContainer width="100%" height={120}>
                           <BarChart data={estadisticas.top_cafes.slice(0,5).map(c=>({
-                            name: c.nombre.split(' ')[0],
-                            pedidos: parseInt(c.pedidos)||0
+                            name: c.nombre.split(' ')[0], pedidos: parseInt(c.pedidos)||0
                           }))} barSize={30}>
                             <XAxis dataKey="name" tick={{ fontSize:10, fill:'#94A3B8' }} axisLine={false} tickLine={false} />
                             <YAxis tick={{ fontSize:10, fill:'#94A3B8' }} axisLine={false} tickLine={false} />
@@ -691,11 +868,9 @@ export default function AdminDashboard() {
                     )}
                   </div>
 
-                  <div className="rounded-2xl p-5"
-                    style={{ background:'white', border:'1px solid #E2E8F0' }}>
+                  <div className="rounded-2xl p-5" style={{ background:'white', border:'1px solid #E2E8F0' }}>
                     <div className="flex items-center gap-2 mb-5">
-                      <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-                        style={{ background:'#F3EEF5' }}>
+                      <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background:'#F3EEF5' }}>
                         <Award size={15} color="#6B3A8A" />
                       </div>
                       <h2 className="font-serif font-bold text-stone-800">Top fincas</h2>
@@ -704,8 +879,7 @@ export default function AdminDashboard() {
                       <>
                         <ResponsiveContainer width="100%" height={120}>
                           <BarChart data={estadisticas.top_fincas.slice(0,5).map(f=>({
-                            name: f.nombre.split(' ')[0],
-                            cosechas: parseInt(f.cosechas)||0
+                            name: f.nombre.split(' ')[0], cosechas: parseInt(f.cosechas)||0
                           }))} barSize={30}>
                             <XAxis dataKey="name" tick={{ fontSize:10, fill:'#94A3B8' }} axisLine={false} tickLine={false} />
                             <YAxis tick={{ fontSize:10, fill:'#94A3B8' }} axisLine={false} tickLine={false} />
@@ -762,10 +936,7 @@ export default function AdminDashboard() {
               return (
                 <button key={t.id} onClick={() => setVista(t.id)}
                   className="flex flex-col items-center gap-1 px-2 py-2 rounded-2xl transition-all"
-                  style={{
-                    background: activo ? 'rgba(255,255,255,0.15)' : 'transparent',
-                    minWidth:'52px'
-                  }}>
+                  style={{ background: activo ? 'rgba(255,255,255,0.15)' : 'transparent', minWidth:'52px' }}>
                   <t.icon size={activo?20:17} color={activo?'white':'#4A5568'} />
                   <span style={{ fontSize:'9px', color:activo?'white':'#4A5568', fontWeight:600 }}>
                     {t.label.length > 7 ? t.label.slice(0,6)+'.' : t.label}
