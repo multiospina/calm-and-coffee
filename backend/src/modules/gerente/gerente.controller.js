@@ -126,10 +126,10 @@ const actualizarMesas = async (req, res) => {
 // ── GET /api/gerente/menu ────────────────────────────────────
 const getMenu = async (req, res) => {
   try {
-    const cafeteria = await pool.query(
-      'SELECT id FROM cafeterias WHERE gerente_id = $1 LIMIT 1',
-      [req.usuario.id]
-    );
+const cafeteria = await pool.query(
+  'SELECT * FROM cafeterias WHERE gerente_id = $1 LIMIT 1',
+  [req.usuario.id]
+);
 
     if (cafeteria.rows.length === 0) {
       return res.status(404).json({ error: 'Cafetería no encontrada' });
