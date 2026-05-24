@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   Plus, Minus, Printer, Check,
@@ -13,15 +13,16 @@ export default function QRMesas({ cafeteria, onActualizar }) {
   const [guardando,   setGuardando]   = useState(false);
   const [editandoNum, setEditandoNum] = useState(false);
   const [nuevoTotal,  setNuevoTotal]  = useState(5);
-  const [vistaTab,    setVistaTab]    = useState('mapa'); // mapa | todos
   const [toast,       setToast]       = useState(null);
+  const inicializado = useRef(false);
 
-  // ── Sincroniza cuando llega cafeteria ───────
+  // Solo inicializa UNA vez cuando llega cafeteria
   useEffect(() => {
-    if (cafeteria?.total_mesas) {
+    if (!inicializado.current && cafeteria?.total_mesas) {
       const total = parseInt(cafeteria.total_mesas);
       setTotalMesas(total);
       setNuevoTotal(total);
+      inicializado.current = true;
     }
   }, [cafeteria?.total_mesas]);
 
@@ -29,6 +30,9 @@ export default function QRMesas({ cafeteria, onActualizar }) {
     setToast({ msg, tipo });
     setTimeout(() => setToast(null), 3000);
   };
+
+  const incrementar = () => setNuevoTotal(prev => Math.min(50, parseInt(prev || 1) + 1));
+  const decrementar = () => setNuevoTotal(prev => Math.max(1,  parseInt(prev || 1) - 1));
 
   const guardarMesas = async () => {
     const total = parseInt(nuevoTotal);
@@ -43,7 +47,7 @@ export default function QRMesas({ cafeteria, onActualizar }) {
       setEditandoNum(false);
       if (mesaActiva > total) setMesaActiva(1);
       mostrarToast(`Cafetería actualizada a ${total} mesas`);
-      onActualizar && onActualizar();
+      // NO llamar onActualizar — el estado local ya está correcto
     } catch (err) {
       console.error('Error mesas:', err.response?.data || err);
       mostrarToast(err.response?.data?.error || 'Error al actualizar', 'error');
@@ -52,15 +56,11 @@ export default function QRMesas({ cafeteria, onActualizar }) {
     }
   };
 
-  const incrementar = () => setNuevoTotal(prev => Math.min(50, parseInt(prev || 1) + 1));
-  const decrementar = () => setNuevoTotal(prev => Math.max(1,  parseInt(prev || 1) - 1));
-
   const urlMesa = (num) =>
     `${window.location.origin}/menu/${cafeteria?.id}/Mesa-${num}`;
 
   const mesas = Array.from({ length: totalMesas }, (_, i) => i + 1);
 
-  // Columnas responsivas según total de mesas
   const cols =
     totalMesas <= 2 ? 2 :
     totalMesas <= 4 ? 2 :
@@ -70,7 +70,7 @@ export default function QRMesas({ cafeteria, onActualizar }) {
   return (
     <div className="space-y-4">
 
-      {/* ── Toast ── */}
+      {/* Toast */}
       {toast && (
         <div className="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-medium"
           style={{
@@ -84,11 +84,10 @@ export default function QRMesas({ cafeteria, onActualizar }) {
         </div>
       )}
 
-      {/* ── Panel control de mesas ── */}
+      {/* Panel control */}
       <div className="rounded-2xl p-5"
         style={{ background: 'white', border: '1px solid #E2E8F0' }}>
 
-        {/* Header */}
         <div className="flex items-start justify-between gap-3 mb-5 flex-wrap">
           <div>
             <p className="font-serif font-bold text-stone-800">Mesas de la cafetería</p>
@@ -116,14 +115,12 @@ export default function QRMesas({ cafeteria, onActualizar }) {
             </div>
           ) : (
             <div className="flex items-center gap-2 flex-wrap">
-              {/* Decrementar */}
               <button onClick={decrementar}
                 className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition active:scale-95"
                 style={{ background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' }}>
                 <Minus size={15} />
               </button>
 
-              {/* Input */}
               <input
                 type="number"
                 value={nuevoTotal}
@@ -136,14 +133,12 @@ export default function QRMesas({ cafeteria, onActualizar }) {
                 style={{ background: '#F0F6FF', color: '#1B4F8A', border: '1.5px solid #C2D6F8' }}
               />
 
-              {/* Incrementar */}
               <button onClick={incrementar}
                 className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition active:scale-95"
                 style={{ background: '#EDFAF4', color: '#1D7A4E', border: '1px solid #A8E8CC' }}>
                 <Plus size={15} />
               </button>
 
-              {/* Guardar */}
               <button
                 onClick={guardarMesas}
                 disabled={guardando}
@@ -152,7 +147,6 @@ export default function QRMesas({ cafeteria, onActualizar }) {
                 {guardando ? 'Guardando...' : 'Guardar'}
               </button>
 
-              {/* Cancelar */}
               <button
                 onClick={() => { setEditandoNum(false); setNuevoTotal(totalMesas); }}
                 className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -172,9 +166,8 @@ export default function QRMesas({ cafeteria, onActualizar }) {
           </div>
         </div>
 
-        {/* Grid de mesas — responsive */}
-        <div
-          className="grid gap-2"
+        {/* Grid mesas responsive */}
+        <div className="grid gap-2"
           style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
           {mesas.map(num => {
             const sel = mesaActiva === num;
@@ -188,14 +181,12 @@ export default function QRMesas({ cafeteria, onActualizar }) {
                   transform:  sel ? 'scale(1.05)' : 'scale(1)',
                   boxShadow:  sel ? '0 4px 16px rgba(27,79,138,0.3)' : 'none',
                 }}>
-                {/* Sillas arriba */}
                 <div className="flex gap-1 mb-0.5">
-                  {[0, 1].map(s => (
+                  {[0,1].map(s => (
                     <div key={s} className="w-3 h-2 rounded-t-full"
                       style={{ background: sel ? 'rgba(255,255,255,0.35)' : '#CBD5E0' }} />
                   ))}
                 </div>
-                {/* Mesa */}
                 <div className="w-10 h-6 rounded-lg flex items-center justify-center"
                   style={{ background: sel ? 'rgba(255,255,255,0.2)' : '#E2E8F0' }}>
                   <span className="text-xs font-bold"
@@ -203,9 +194,8 @@ export default function QRMesas({ cafeteria, onActualizar }) {
                     {num}
                   </span>
                 </div>
-                {/* Sillas abajo */}
                 <div className="flex gap-1 mt-0.5">
-                  {[0, 1].map(s => (
+                  {[0,1].map(s => (
                     <div key={s} className="w-3 h-2 rounded-b-full"
                       style={{ background: sel ? 'rgba(255,255,255,0.35)' : '#CBD5E0' }} />
                   ))}
@@ -224,11 +214,10 @@ export default function QRMesas({ cafeteria, onActualizar }) {
         </p>
       </div>
 
-      {/* ── QR de mesa seleccionada ── */}
+      {/* QR mesa seleccionada */}
       <div className="rounded-2xl overflow-hidden"
         style={{ background: 'white', border: '1.5px solid #C2D6F8' }}>
 
-        {/* Header QR */}
         <div className="px-5 py-4 flex items-center justify-between"
           style={{ background: 'linear-gradient(135deg, #0F3366 0%, #1B4F8A 100%)' }}>
           <div>
@@ -260,7 +249,6 @@ export default function QRMesas({ cafeteria, onActualizar }) {
         </div>
 
         <div className="p-5 flex flex-col items-center gap-4">
-          {/* QR grande */}
           <div className="p-5 rounded-2xl"
             style={{ background: '#F0F6FF', border: '1px solid #C2D6F8' }}>
             <QRCodeSVG
@@ -272,7 +260,6 @@ export default function QRMesas({ cafeteria, onActualizar }) {
             />
           </div>
 
-          {/* URL */}
           <div className="w-full px-4 py-3 rounded-xl"
             style={{ background: '#F8F9FA', border: '1px solid #E2E8F0' }}>
             <p className="text-xs font-mono text-stone-400 break-all text-center">
@@ -280,7 +267,6 @@ export default function QRMesas({ cafeteria, onActualizar }) {
             </p>
           </div>
 
-          {/* Navegación rápida */}
           <div className="flex gap-2 flex-wrap justify-center">
             {mesas.map(num => (
               <button key={num} onClick={() => setMesaActiva(num)}
@@ -295,7 +281,6 @@ export default function QRMesas({ cafeteria, onActualizar }) {
             ))}
           </div>
 
-          {/* Imprimir */}
           <button onClick={() => window.print()}
             className="w-full py-3 rounded-2xl text-sm font-bold text-white flex items-center justify-center gap-2 transition active:scale-95"
             style={{ background: '#1B4F8A' }}>
@@ -305,7 +290,7 @@ export default function QRMesas({ cafeteria, onActualizar }) {
         </div>
       </div>
 
-      {/* ── Todos los QR ── */}
+      {/* Todos los QR */}
       <div className="rounded-2xl p-5"
         style={{ background: 'white', border: '1px solid #E2E8F0' }}>
         <div className="flex items-center justify-between mb-4">
@@ -321,8 +306,7 @@ export default function QRMesas({ cafeteria, onActualizar }) {
           </button>
         </div>
 
-        <div
-          className="grid gap-3"
+        <div className="grid gap-3"
           style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
           {mesas.map(num => (
             <button key={num}
