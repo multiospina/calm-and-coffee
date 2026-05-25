@@ -3,7 +3,6 @@ const pool = require('../../config/db');
 // ── GET /api/cliente/trazabilidad/:qr_codigo ─────────────────
 const getTrazabilidad = async (req, res) => {
   const { qr_codigo } = req.params;
-
   try {
     const cosechaRes = await pool.query(
       `SELECT c.id, c.variedad, c.proceso, c.lote_nombre,
@@ -22,24 +21,21 @@ const getTrazabilidad = async (req, res) => {
               ls.notas_siembra,
               ls.variedad     AS variedad_lote
        FROM cosechas c
-       JOIN fincas f         ON f.id = c.finca_id
-       JOIN usuarios u       ON u.id = f.caficultor_id
+       JOIN fincas f              ON f.id = c.finca_id
+       JOIN usuarios u            ON u.id = f.caficultor_id
        LEFT JOIN lotes_siembra ls ON ls.id = c.lote_id
        WHERE c.qr_codigo = $1 AND c.estado = 'cerrada'`,
       [qr_codigo]
     );
 
     if (cosechaRes.rows.length === 0) {
-      return res.status(404).json({
-        error: 'QR no encontrado o cosecha no disponible'
-      });
+      return res.status(404).json({ error: 'QR no encontrado o cosecha no disponible' });
     }
 
     const cosecha = cosechaRes.rows[0];
 
     const etapasRes = await pool.query(
-      `SELECT tipo_etapa, fecha, descripcion,
-              fotos_urls, datos_extra
+      `SELECT tipo_etapa, fecha, descripcion, fotos_urls, datos_extra
        FROM etapas_cosecha
        WHERE cosecha_id = $1
        ORDER BY fecha ASC`,
@@ -64,9 +60,9 @@ const getTrazabilidad = async (req, res) => {
               ROUND(AVG(cafe_sabor)::numeric, 1)       AS avg_sabor,
               ROUND(AVG(cafe_cuerpo)::numeric, 1)      AS avg_cuerpo,
               ROUND(AVG(cafe_experiencia)::numeric, 1) AS avg_experiencia,
-              COUNT(*)                                  AS total_valoraciones
+              COUNT(*) AS total_valoraciones
        FROM valoraciones v
-       JOIN pedidos p ON p.id = v.pedido_id
+       JOIN pedidos p    ON p.id = v.pedido_id
        JOIN menu_items mi ON mi.id = p.menu_item_id
        WHERE mi.cosecha_id = $1`,
       [cosecha.id]
@@ -114,21 +110,21 @@ const getTrazabilidad = async (req, res) => {
       catacion:    catacionRes.rows[0] || null,
       valoraciones: valoracionesRes.rows[0],
     });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error al obtener trazabilidad' });
   }
 };
 
-// ── GET /api/cliente/cafeterias ──────────────────────────────
+// ── GET /api/cliente/cafeterias ── incluye latitud, longitud, total_mesas
 const getCafeterias = async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT ca.id, ca.nombre, ca.direccion,
               ca.municipio, ca.descripcion,
               ca.foto_url, ca.horario,
-              ca.activa,
+              ca.activa, ca.latitud, ca.longitud,
+              ca.total_mesas,
               COUNT(DISTINCT cc.cosecha_id) AS cosechas_activas,
               ROUND(AVG(v.cafe_experiencia)::numeric, 1) AS rating
        FROM cafeterias ca
@@ -141,7 +137,6 @@ const getCafeterias = async (req, res) => {
        GROUP BY ca.id
        ORDER BY ca.nombre ASC`
     );
-
     res.json({ cafeterias: result.rows });
   } catch (err) {
     console.error(err);
