@@ -39,7 +39,7 @@ app.use('/api/cliente',        clienteRoutes);
 app.use('/api/auth',           authRoutes);
 app.use('/api/caficultor',     caficultorRoutes);
 app.use('/api/catador',        catadorRoutes);
-
+app.use('/api/temperatura',    temperaturaRoutes);
 // ── Ruta de salud ────────────────────────────
 app.get('/api/health', async (req, res) => {
   try {

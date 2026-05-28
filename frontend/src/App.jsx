@@ -19,6 +19,7 @@ import CatadorDashboard from './pages/catador/Dashboard';
 
 import Onboarding from './pages/cliente/Onboarding';
 import MenuMesa   from './pages/publico/MenuMesa';
+import TemperaturaPublica from './pages/publico/TemperaturaPublica';
 
 function App() {
   return (
@@ -53,6 +54,9 @@ function App() {
 
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/menu/:cafeteria_id/:mesa" element={<MenuMesa />} />
+
+          <Route path="/temperatura" element={<TemperaturaPublica />} />
+
         </Routes>
       </AuthProvider>
     </BrowserRouter>
