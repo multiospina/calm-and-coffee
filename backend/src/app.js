@@ -30,7 +30,7 @@ const gerenteRoutes        = require('./modules/gerente/gerente.routes');
 const adminRoutes          = require('./modules/admin/admin.routes');
 const catadorRoutes        = require('./modules/catador/catador.routes');
 const notificacionesRoutes = require('./modules/notificaciones/notificaciones.routes');
-
+const temperaturaRoutes = require('./modules/temperatura/temperatura.routes');
 app.use('/api/notificaciones', notificacionesRoutes);
 app.use('/api/admin',          adminRoutes);
 app.use('/api/gerente',        gerenteRoutes);
